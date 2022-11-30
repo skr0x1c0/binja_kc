@@ -1,0 +1,3 @@
+add_executable(dwarf_debuginfo_test main.cpp)
+
+target_link_libraries(dwarf_debuginfo_test PRIVATE dwarf_debuginfo kcview)
