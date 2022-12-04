@@ -4,6 +4,8 @@ A plugin for loading Mach-O kernelcache and dSYM files into Binary Ninja.
 
 <img align="center" src="./resources/screenshot.png">
 
+This plugin can load symbols and type information from multiple dSYM files contained in the KDK to the corresponding kernelcache opened in Binary Ninja. It will automatically handle sliding of symbol address, merging of duplicate types and renaming of different types with same name. It can also import function and data symbol names from Mach-O kernel extensions contained in the KDK to the corresponding kernelcache.
+
 ## Installation
 
 ### Prerequisites
