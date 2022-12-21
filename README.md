@@ -52,7 +52,7 @@ git clone --recursive https://github.com/skr0x1c0/binja_kc
 cd binja_kc
 mkdir build
 cd build
-cmake .. -DCMAKE_RELEASE_TYPE=RelWithDebInfo
+cmake .. -DCMAKE_BUILD_TYPE=RelWithDebInfo
 make -j$(nproc) install_binja_kc
 ```
 
