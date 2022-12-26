@@ -24,7 +24,6 @@
 #include <llvm/DebugInfo/DWARF/DWARFUnit.h>
 
 #include <fmt/format.h>
-#include <range/v3/view/transform.hpp>
 
 #include <binja/utils/log.h>
 

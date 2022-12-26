@@ -39,6 +39,6 @@ target_include_directories(${LIBRARY_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/in
 target_include_directories(${LIBRARY_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/binja/debuginfo)
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC binja_kc_common)
-target_link_libraries(${LIBRARY_NAME} PUBLIC binaryninjaapi fmt::fmt mio::mio range-v3::range-v3 Taskflow)
+target_link_libraries(${LIBRARY_NAME} PUBLIC binaryninjaapi fmt::fmt mio::mio Taskflow)
 
 add_subdirectory(test)
