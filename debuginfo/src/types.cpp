@@ -21,8 +21,6 @@
 
 #include <unordered_set>
 
-#include <boost/functional/hash.hpp>
-#include <llvm/DebugInfo/DWARF/DWARFContext.h>
 #include <llvm/DebugInfo/DWARF/DWARFUnit.h>
 
 #include <binja/utils/log.h>

@@ -20,12 +20,9 @@
 //
 
 
-#include <iostream>
-
 #include <binaryninjaapi.h>
 #include <binaryninjacore.h>
 
-#include <boost/icl/interval_map.hpp>
 #include <fmt/format.h>
 #include <llvm/Object/MachO.h>
 #include <taskflow/taskflow.hpp>
@@ -62,8 +59,8 @@ using BinaryNinja::Settings;
 using BinaryNinja::Symbol;
 using BinaryNinja::Type;
 
-using boost::icl::interval;
-using boost::icl::interval_map;
+using Utils::Interval;
+using Utils::IntervalMap;
 
 namespace {
 
@@ -299,7 +296,7 @@ private:
 
     void InsertSegment(const Segment &segment, const char *prefix = "") {
         BDVerify(segment.vaStart >= vaStart_);
-        auto va = boost::icl::discrete_interval{segment.vaStart, segment.vaStart + segment.vaLength};
+        auto va = Interval{segment.vaStart, segment.vaStart + segment.vaLength};
         if (const Segment *entry = va2RawMap_.Query(va)) {
             throw MachoDecodeError{"VA overlap between [{:#016x}-{:#016x}) and [{:#016x}-{:#016x}) while trying to add segment {}",
                                    va.lower(), va.upper(),

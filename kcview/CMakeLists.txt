@@ -12,6 +12,6 @@ add_library(${LIBRARY_NAME} STATIC ${KERNCACHE_SOURCES} ${KERNCACHE_HEADERS})
 target_include_directories(${LIBRARY_NAME} PUBLIC include)
 target_include_directories(${LIBRARY_NAME} PRIVATE include/binja/kcview)
 target_link_libraries(${LIBRARY_NAME} PUBLIC binja_kc_common)
-target_link_libraries(${LIBRARY_NAME} PUBLIC Boost::icl Taskflow fmt::fmt binaryninjaapi)
+target_link_libraries(${LIBRARY_NAME} PUBLIC Taskflow fmt::fmt binaryninjaapi)
 
 add_subdirectory(test)

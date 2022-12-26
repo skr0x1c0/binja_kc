@@ -21,15 +21,14 @@
 
 #pragma once
 
-#include <boost/icl/interval_map.hpp>
-
 #include <binja/macho/macho.h>
+#include <binja/utils/interval_map.h>
 
 namespace Binja::DebugInfo {
 
 class AddressSlider {
 private:
-    using Interval = boost::icl::discrete_interval<uint64_t>;
+    using Interval = Utils::Interval<uint64_t>;
 
 public:
     void Map(Interval from, Interval to);
@@ -39,8 +38,8 @@ public:
                                                  const std::vector<MachO::Segment> &to);
 
 private:
-    boost::icl::interval_map<uint64_t, uint64_t> s1map_;
-    boost::icl::interval_map<uint64_t, uint64_t> s2map_;
+    Utils::IntervalMap<uint64_t, uint64_t> s1map_;
+    Utils::IntervalMap<uint64_t, uint64_t> s2map_;
 };
 
 }// namespace Binja::DebugInfo

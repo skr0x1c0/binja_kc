@@ -21,19 +21,15 @@
 
 #pragma once
 
-#include <boost/lexical_cast.hpp>
-#include <boost/uuid/random_generator.hpp>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
 #include <fmt/format.h>
 
 namespace Binja::Types {
 
-using UUID = boost::uuids::uuid;
+struct UUID {
+    uint8_t data[16];
+    auto operator <=>(const UUID&) const = default;
+};
 
-inline UUID RandomUUID() {
-    return boost::uuids::random_generator()();
-}
 
 }// namespace Binja::Types
 
@@ -43,7 +39,7 @@ template<>
 struct formatter<Binja::Types::UUID> : formatter<string_view> {
     template<typename FormatContext>
     auto format(const Binja::Types::UUID &p, FormatContext &ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "{}", boost::lexical_cast<std::string>(p));
+        return fmt::format_to(ctx.out(), "{}", fmt::join(p.data, ""));
     }
 };
 

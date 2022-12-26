@@ -21,7 +21,6 @@
 
 #include <binaryninjaapi.h>
 
-#include <boost/functional/hash.hpp>
 #include <llvm/DebugInfo/DWARF/DWARFDie.h>
 
 #include <binja/utils/debug.h>

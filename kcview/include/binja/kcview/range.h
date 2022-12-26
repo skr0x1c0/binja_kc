@@ -23,26 +23,26 @@
 #pragma once
 
 #include <binja/utils/debug.h>
-#include <boost/icl/interval_map.hpp>
+#include <binja/utils/interval_map.h>
 
 namespace Binja::KCView {
 
 template<class K, class V>
 class RangeMap {
 public:
-    void Insert(boost::icl::discrete_interval<K> key, V value) {
+    void Insert(Utils::Interval<K> key, V value) {
         auto it = index_.find(key);
         BDVerify(it == index_.end());
         auto idx = values_.size();
         values_.push_back(value);
-        index_.set({key, idx});
+        index_.insert(key, idx);
     }
 
     const V *Query(K key) {
         return QueryInternal(key);
     }
 
-    const V *Query(boost::icl::discrete_interval<K> key) {
+    const V *Query(Utils::Interval<K> key) {
         return QueryInternal(key);
     }
 
@@ -70,7 +70,7 @@ private:
         return &values_[it->second];
     }
 
-    boost::icl::interval_map<K, size_t> index_;
+    Utils::IntervalMap<K, size_t> index_;
     std::vector<V> values_;
 };
 

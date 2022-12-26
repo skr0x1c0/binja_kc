@@ -32,8 +32,8 @@ void AddressSlider::Map(AddressSlider::Interval from, AddressSlider::Interval to
     BDVerify(from.upper() - from.lower() > 0);
     BDVerify(s1map_.find(from) == s1map_.end());
     BDVerify(s2map_.find(to) == s2map_.end());
-    s1map_.set({from, to.lower()});
-    s2map_.set({to, from.lower()});
+    s1map_.insert(from, to.lower());
+    s2map_.insert(to, from.lower());
 }
 
 std::optional<uint64_t> AddressSlider::SlideAddress(uint64_t address) {

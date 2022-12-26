@@ -22,7 +22,7 @@
 #include <arpa/inet.h>
 #include <fstream>
 
-#include <boost/iostreams/device/mapped_file.hpp>
+#include <mio/mmap.hpp>
 #include <llvm/Object/MachO.h>
 
 #include <binja/macho/macho.h>
@@ -146,7 +146,7 @@ std::set<fs::path> SymbolSourceFinder::FindAllMachoObjects() {
             continue;
         }
 
-        boost::iostreams::mapped_file_source file{dirent.path()};
+        mio::mmap_source file{dirent.path().string()};
         std::span<const char> data{file.data(), file.size()};
         Utils::SpanReader reader{data};
 
