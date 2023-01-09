@@ -23,8 +23,8 @@
 #include <binaryninjaapi.h>
 #include <binaryninjacore.h>
 
-#include <fmt/format.h>
 #include <llvm/Object/MachO.h>
+#include <fmt/format.h>
 #include <taskflow/taskflow.hpp>
 
 #include <binja/macho/macho.h>
@@ -120,25 +120,25 @@ public:
     bool PerformIsOffsetReadable(uint64_t offset) override {
         if (const auto *segment = va2RawMap_.Query(offset)) {
             return segment->flags & BNSegmentFlag::SegmentReadable;
-        } else {
-            return false;
         }
+        return false;
+
     }
 
     bool PerformIsOffsetWritable(uint64_t offset) override {
         if (const auto *segment = va2RawMap_.Query(offset)) {
             return segment->flags & BNSegmentFlag::SegmentWritable;
-        } else {
-            return false;
         }
+        return false;
+
     }
 
     bool PerformIsOffsetExecutable(uint64_t offset) override {
         if (const auto *segment = va2RawMap_.Query(offset)) {
             return segment->flags & BNSegmentFlag::SegmentExecutable;
-        } else {
-            return false;
         }
+        return false;
+
     }
 
     bool PerformIsOffsetBackedByFile(uint64_t offset) override {
