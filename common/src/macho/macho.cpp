@@ -23,10 +23,13 @@
 
 #include "macho/macho.h"
 #include "utils/log.h"
+#include "utils/demangle.h"
 
 using namespace Binja;
 using namespace MachO;
 using namespace llvm::MachO;
+
+namespace BN = BinaryNinja;
 
 using Utils::BinaryViewDataReader;
 
@@ -216,23 +219,50 @@ std::optional<uint64_t> MachHeaderParser::DecodeEntryPoint() {
 }
 
 std::optional<Types::UUID> MachHeaderParser::DecodeUUID() {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
-    auto header = reader.Read<mach_header_64>();
-    for (int i = 0; i < header.ncmds; ++i) {
-        auto cmd = reader.Peek<load_command>();
-        if (cmd.cmd != LC_UUID) {
-            reader.Seek(cmd.cmdsize);
-            continue;
-        }
-        auto uuid = reader.Peek<uuid_command>();
+    if (auto uuid = FindCommand<uuid_command>(LC_UUID)) {
         Types::UUID result;
-        static_assert(sizeof(result.data) == sizeof(uuid.uuid));
-        memcpy(result.data, uuid.uuid, sizeof(result.data));
+        static_assert(sizeof(result.data) == sizeof(uuid->uuid));
+        memcpy(result.data, uuid->uuid, sizeof(result.data));
         return result;
     }
     return std::nullopt;
 }
 
+
+std::vector<Symbol> MachHeaderParser::DecodeSymbols() {
+    std::vector<Symbol> result;
+    if (auto symtab = FindCommand<symtab_command>(LC_SYMTAB)) {
+        BinaryViewDataReader symReader{&binaryView_, symtab->symoff};
+        for (size_t i=0; i<symtab->nsyms; ++i) {
+            auto sym = symReader.Read<nlist_64>();
+            if ((sym.n_type & N_TYPE) == N_UNDF) {
+                continue;
+            }
+            BinaryViewDataReader strReader{&binaryView_, symtab->stroff + sym.n_strx};
+            std::string name = Utils::Demangle(strReader.ReadString());
+            result.emplace_back(Symbol {
+                .name = name,
+                .addr = sym.n_value,
+            });
+        }
+    }
+    return result;
+}
+
+template<class T>
+std::optional<T> MachHeaderParser::FindCommand(uint32_t cmd) {
+    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    auto header = reader.Read<mach_header_64>();
+    for (uint32_t i = 0; i < header.ncmds; ++i) {
+        auto lc = reader.Peek<load_command>();
+        if (lc.cmd != cmd) {
+            reader.Seek(lc.cmdsize);
+            continue;
+        }
+        return reader.Peek<T>();
+    }
+    return std::nullopt;
+}
 
 /// Mach binary view
 

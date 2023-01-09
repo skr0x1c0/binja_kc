@@ -6,6 +6,7 @@ set(BINJA_KC_COMMON_HEADERS
         include/binja/types/errors.h
         include/binja/types/uuid.h
         include/binja/utils/debug.h
+        include/binja/utils/demangle.h
         include/binja/utils/log.h
         include/binja/utils/span_reader.h
         include/binja/utils/strconv.h
@@ -13,6 +14,7 @@ set(BINJA_KC_COMMON_HEADERS
 
 set(BINJA_KC_COMMON_SOURCES
         src/utils/binary_view.cpp
+        src/utils/demangle.cpp
         src/macho/macho.cpp
         src/utils/span_reader.cpp
         src/utils/strconv.cpp)

@@ -19,40 +19,12 @@
 // SOFTWARE.
 
 
-#include <iostream>
+#pragma once
 
-#include <binaryninjaapi.h>
-#include <binaryninjacore.h>
+#include <string>
 
-#include <binja/debuginfo/plugin_dsym.h>
-#include <binja/debuginfo/plugin_macho.h>
-#include <binja/debuginfo/plugin_symtab.h>
-#include <binja/kcview/lib.h>
-#include <binja/utils/binary_view.h>
+namespace Binja::Utils {
 
-using namespace Binja;
-using BinaryNinja::BinaryView;
-using BinaryNinja::BinaryViewType;
-using BinaryNinja::Ref;
-namespace BN = BinaryNinja;
+std::string Demangle(const std::string &name);
 
-int main(int argc, const char **argv) {
-    if (argc != 2) {
-        std::cerr << "Invalid arguments\n";
-        return 1;
-    }
-    std::string binaryPath = argv[1];
-
-    BN::SetBundledPluginDirectory(BNGetBundledPluginDirectory());
-    BN::InitPlugins(true);
-    DebugInfo::PluginDSYM::RegisterPlugin();
-    DebugInfo::PluginMacho::RegisterPlugin();
-    DebugInfo::PluginSymtab::RegisterPlugin();
-    KCView::CorePluginInit();
-
-    BNLogToStdout(BNLogLevel::InfoLog);
-
-    Ref<BinaryView> bv = Utils::OpenBinaryView(binaryPath, false, nullptr, nullptr);
-    bv->UpdateAnalysisAndWait();
-    return 0;
 }

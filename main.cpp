@@ -23,6 +23,7 @@
 
 #include <binja/debuginfo/plugin_dsym.h>
 #include <binja/debuginfo/plugin_macho.h>
+#include <binja/debuginfo/plugin_symtab.h>
 #include <binja/kcview/lib.h>
 
 using namespace Binja;
@@ -33,6 +34,7 @@ BN_DECLARE_CORE_ABI_VERSION
 BINARYNINJAPLUGIN bool CorePluginInit() {
     DebugInfo::PluginDSYM::RegisterPlugin();
     DebugInfo::PluginMacho::RegisterPlugin();
+    DebugInfo::PluginSymtab::RegisterPlugin();
     KCView::CorePluginInit();
     return true;
 }

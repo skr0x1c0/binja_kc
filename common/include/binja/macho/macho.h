@@ -59,6 +59,11 @@ struct Segment {
     std::vector<Section> sections;
 };
 
+struct Symbol {
+    std::string name;
+    uint64_t addr;
+};
+
 class MachHeaderParser {
 public:
     MachHeaderParser(BinaryNinja::BinaryView &binaryView, uint64_t machHeaderOffset)
@@ -70,9 +75,11 @@ public:
     std::vector<Segment> DecodeSegments();
     std::optional<uint64_t> DecodeEntryPoint();
     std::optional<Types::UUID> DecodeUUID();
+    std::vector<Symbol> DecodeSymbols();
 
 private:
     void VerifyHeader();
+    template <class T> std::optional<T> FindCommand(uint32_t cmd);
 
     static Fileset DecodeFileset(Utils::BinaryViewDataReader &reader);
     static Segment DecodeSegment(Utils::BinaryViewDataReader &reader);

@@ -10,6 +10,7 @@ set(DWARF_LOADER_HEADERS
         include/binja/debuginfo/name_index.h
         include/binja/debuginfo/plugin_dsym.h
         include/binja/debuginfo/plugin_macho.h
+        include/binja/debuginfo/plugin_symtab.h
         include/binja/debuginfo/source_finder.h
         include/binja/debuginfo/slider.h
         include/binja/debuginfo/types.h
@@ -24,6 +25,7 @@ set(DWARF_LOADER_SOURCES
         src/name_index.cpp
         src/plugin_dsym.cpp
         src/plugin_macho.cpp
+        src/plugin_symtab.cpp
         src/types.cpp
         src/slider.cpp
         src/source_finder.cpp

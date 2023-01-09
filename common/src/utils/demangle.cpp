@@ -19,40 +19,18 @@
 // SOFTWARE.
 
 
-#include <iostream>
+#include <cxxabi.h>
 
-#include <binaryninjaapi.h>
-#include <binaryninjacore.h>
+#include "utils/demangle.h"
 
-#include <binja/debuginfo/plugin_dsym.h>
-#include <binja/debuginfo/plugin_macho.h>
-#include <binja/debuginfo/plugin_symtab.h>
-#include <binja/kcview/lib.h>
-#include <binja/utils/binary_view.h>
-
-using namespace Binja;
-using BinaryNinja::BinaryView;
-using BinaryNinja::BinaryViewType;
-using BinaryNinja::Ref;
-namespace BN = BinaryNinja;
-
-int main(int argc, const char **argv) {
-    if (argc != 2) {
-        std::cerr << "Invalid arguments\n";
-        return 1;
+std::string Binja::Utils::Demangle(const std::string& name) {
+    int status = 0;
+    char* ret = abi::__cxa_demangle(name.c_str(), nullptr, nullptr, &status);
+    if (status) {
+        return name;
     }
-    std::string binaryPath = argv[1];
 
-    BN::SetBundledPluginDirectory(BNGetBundledPluginDirectory());
-    BN::InitPlugins(true);
-    DebugInfo::PluginDSYM::RegisterPlugin();
-    DebugInfo::PluginMacho::RegisterPlugin();
-    DebugInfo::PluginSymtab::RegisterPlugin();
-    KCView::CorePluginInit();
-
-    BNLogToStdout(BNLogLevel::InfoLog);
-
-    Ref<BinaryView> bv = Utils::OpenBinaryView(binaryPath, false, nullptr, nullptr);
-    bv->UpdateAnalysisAndWait();
-    return 0;
+    std::string result{ret};
+    free(ret);
+    return result;
 }
