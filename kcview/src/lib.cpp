@@ -31,6 +31,7 @@
 #include <binja/utils/binary_view.h>
 #include <binja/utils/debug.h>
 #include <binja/utils/log.h>
+#include <binja/utils/settings.h>
 
 #include "errors.h"
 #include "lib.h"
@@ -65,18 +66,22 @@ using Utils::IntervalMap;
 namespace {
 
 constexpr auto *kBinaryType = "MachO-KC";
-constexpr auto *kSettingStripPAC = "kcLoader.stripPAC";
-constexpr auto *kSettingSymbolicateKallocTypes = "kcLoader.symbolicateKallocTypes";
-constexpr auto *kSettingIgnoredFilesets = "kcLoader.ignoredFilesets";
 
 class CustomBinaryView : public BinaryView {
 public:
     explicit CustomBinaryView(BinaryView *parent)
         : BinaryView{kBinaryType, parent->GetFile(), parent} {
         base_ = GetParentView();
-        for (const auto& fileset: GetSetting<std::vector<std::string>>(kSettingIgnoredFilesets)) {
-            ignoredFilesets_.insert(fileset);
+        auto bnSettings = BinaryNinja::Settings::Instance();
+        Utils::BinjaSettings settings {GetObject(), bnSettings->GetObject()};
+        for (const auto& fileset: settings.KCExcludedFilesets()) {
+            excludedFilesets_.insert(fileset);
         }
+        for (const auto& fileset: settings.KCIncludedFilesets()) {
+            includedFilesets_.insert(fileset);
+        }
+        stripPAC_ = settings.KCStripPAC();
+        defineKallocTypeSymbols_ = settings.KCSymbolicateKallocTypes();
     }
 
     bool Init() override {
@@ -183,10 +188,10 @@ private:
         FindEntryPoint();
 
         const Ref<Settings> settings = BinaryNinja::Settings::Instance();
-        if (GetSetting<bool>(kSettingStripPAC)) {
+        if (stripPAC_) {
             StripPAC();
         }
-        if (GetSetting<bool>(kSettingSymbolicateKallocTypes)) {
+        if (defineKallocTypeSymbols_) {
             DefineKallocTypeSymbols();
         }
     }
@@ -229,7 +234,10 @@ private:
     }
 
     bool ShouldSkipSegment(const Fileset &fileset, const Segment &segment) {
-        if (ignoredFilesets_.contains(fileset.name)) {
+        if (!includedFilesets_.empty() && !includedFilesets_.contains(fileset.name)) {
+            return true;
+        }
+        if (excludedFilesets_.contains(fileset.name)) {
             return true;
         }
         if (segment.name == "__LINKEDIT" || segment.name == "__LINKINFO") {
@@ -409,43 +417,17 @@ private:
         return MachHeaderParser{*base_, fileoff}.DecodeSegments();
     }
 
-    template <typename T>
-    T GetSetting(const std::string& key);
-
-    template <>
-    bool GetSetting(const std::string& key) {
-        const Ref<Settings> settings = BinaryNinja::Settings::Instance();
-        return BNSettingsGetBool(
-            settings->GetObject(),
-            key.c_str(),
-            GetObject(),
-            nullptr
-            );
-    }
-
-    template <>
-    std::vector<std::string> GetSetting(const std::string& key) {
-        const Ref<Settings> settings = BinaryNinja::Settings::Instance();
-        size_t size = 0;
-        char** outBuffer =
-            (char**)BNSettingsGetStringList(settings->GetObject(), key.c_str(), GetObject(), nullptr, &size);
-
-        std::vector<std::string> result;
-        result.reserve(size);
-        for (size_t i = 0; i < size; i++)
-            result.emplace_back(outBuffer[i]);
-
-        BNFreeStringList(outBuffer, size);
-        return result;
-    }
-
 private:
     uint64_t vaStart_;
     uint64_t vaLength_;
     uint64_t entryPoint_;
     RangeMap<uint64_t, Segment> va2RawMap_;
     Ref<BinaryView> base_;
-    std::set<std::string> ignoredFilesets_;
+
+    std::set<std::string> excludedFilesets_;
+    std::set<std::string> includedFilesets_;
+    bool stripPAC_;
+    bool defineKallocTypeSymbols_;
 };
 
 class CustomBinaryType : public BinaryViewType {
@@ -501,36 +483,5 @@ public:
 
 
 void KCView::CorePluginInit() {
-    Ref<Settings> settings = BinaryNinja::Settings::Instance();
-    settings->RegisterGroup("kcLoader", "Mach-O KC Loader");
-    settings->RegisterSetting(
-        kSettingIgnoredFilesets,
-        R"({
-            "aliases": ["kcLoader.ignored-filesets"],
-            "default": ["com.apple.driver.FairPlayIOKit"],
-            "description":"List of filesets in kernel cache to ignore",
-            "elementType":"string",
-            "ignore":[],
-            "title":"Ignored filesets",
-            "type":"array"
-        })");
-    settings->RegisterSetting(
-        kSettingStripPAC,
-        R"({
-            "aliases": ["kcLoader.strip-pac"],
-            "default": false,
-            "description":"Strip PAC from PAC signed pointers",
-            "title":"Strip PAC",
-            "type":"boolean"
-        })");
-    settings->RegisterSetting(
-        kSettingSymbolicateKallocTypes,
-        R"({
-            "aliases": ["kcLoader.symbolicate-kalloc-types"],
-            "default": true,
-            "description":"Symbolicate __kalloc_type and __kalloc_var sections",
-            "title":"Symbolicate kalloc types",
-            "type":"boolean"
-        })");
     BinaryViewType::Register(new CustomBinaryType{});
 }

@@ -37,10 +37,16 @@ struct MachOImportProgressMonitor {
     virtual bool operator()(size_t total, size_t done) = 0;
 };
 
+struct MachOImportOptions {
+    bool importFunctions;
+    bool importDataVariables;
+};
+
 class MachOImportTask {
 public:
     MachOImportTask(std::vector<std::filesystem::path> sources,
                     BinaryNinja::BinaryView &binaryView, BinaryNinja::DebugInfo &debugInfo,
+                    MachOImportOptions options,
                     MachOImportProgressMonitor &monitor);
     void Import();
 
@@ -53,6 +59,7 @@ private:
     BinaryNinja::DebugInfo &debugInfo_;
     std::vector<std::filesystem::path> sources_;
     std::map<uint64_t, std::string> registeredSymbols_;
+    MachOImportOptions options_;
     MachOImportProgressMonitor &monitor_;
     std::map<Types::UUID, std::vector<MachO::Segment>> targetSegments_;
 };

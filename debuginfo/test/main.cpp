@@ -29,6 +29,7 @@
 #include <binja/debuginfo/plugin_symtab.h>
 #include <binja/kcview/lib.h>
 #include <binja/utils/binary_view.h>
+#include <binja/utils/settings.h>
 
 using namespace Binja;
 using BinaryNinja::BinaryView;
@@ -45,6 +46,7 @@ int main(int argc, const char **argv) {
 
     BN::SetBundledPluginDirectory(BNGetBundledPluginDirectory());
     BN::InitPlugins(true);
+    Utils::BinjaSettings::Register();
     DebugInfo::PluginDSYM::RegisterPlugin();
     DebugInfo::PluginMacho::RegisterPlugin();
     DebugInfo::PluginSymtab::RegisterPlugin();

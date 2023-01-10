@@ -8,14 +8,16 @@ set(BINJA_KC_COMMON_HEADERS
         include/binja/utils/debug.h
         include/binja/utils/demangle.h
         include/binja/utils/log.h
+        include/binja/utils/settings.h
         include/binja/utils/span_reader.h
         include/binja/utils/strconv.h
         include/binja/utils/interval_map.h)
 
 set(BINJA_KC_COMMON_SOURCES
+        src/macho/macho.cpp
         src/utils/binary_view.cpp
         src/utils/demangle.cpp
-        src/macho/macho.cpp
+        src/utils/settings.cpp
         src/utils/span_reader.cpp
         src/utils/strconv.cpp)
 

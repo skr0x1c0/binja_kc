@@ -27,6 +27,7 @@
 
 #include <binja/macho/macho.h>
 #include <binja/utils/log.h>
+#include <binja/utils/settings.h>
 
 #include "debug.h"
 #include "dsym.h"
@@ -86,13 +87,18 @@ void PluginDSYM::Load(BinaryNinja::DebugInfo &debugInfo, DwarfImportProgressMoni
         sourceObjects.push_back(dwarfObject);
     }
 
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {binaryView_.GetObject(), bnSettings->GetObject()};
+
+    BDVerify(settings.DWARFEnabled());
+    ImportOptions options{
+        .importTypes = settings.DWARFLoadTypes(),
+        .importFunctions = settings.DWARFLoadFunctions(),
+        .importGlobals = settings.DWARFLoadDataVariables(),
+    };
+
     BDLogInfo("found {} dwarf symbols sources at {}", dwarfObjects.size(), source->string());
     try {
-        ImportOptions options{
-            .importTypes = true,
-            .importFunctions = true,
-            .importGlobals = true,
-        };
         DwarfImportTask task{sourceObjects, binaryView_, debugInfo, options, monitor};
         task.Import();
     } catch (const Types::DecodeError &e) {
@@ -101,6 +107,18 @@ void PluginDSYM::Load(BinaryNinja::DebugInfo &debugInfo, DwarfImportProgressMoni
 }
 
 std::optional<fs::path> PluginDSYM::GetSymbolSource() {
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {binaryView_.GetObject(), bnSettings->GetObject()};
+    BDVerify(settings.DWARFEnabled());
+
+    if (auto path = settings.DebugInfoSymbolsSearchPath()) {
+        if (!fs::exists(*path)) {
+            BDLogError("skipping dwarf import since specified symbols directory {} does not exist", *path);
+            return std::nullopt;
+        }
+        return *path;
+    }
+
     fs::path binarySource = binaryView_.GetFile()->GetOriginalFilename();
 
     fs::path symbolsDirectory = fmt::format("{}.symbols", binarySource.string());
@@ -148,6 +166,13 @@ namespace {
 
 bool IsValidForBinaryView(void *context, BNBinaryView *handle) {
     BinaryNinja::BinaryView bv{handle};
+
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {bv.GetObject(), bnSettings->GetObject()};
+    if (!settings.DWARFEnabled()) {
+        BDLogInfo("skipping dsym debug info import since it is disabled");
+        return false;
+    }
 
     PluginDSYM plugin{bv};
     if (plugin.GetSymbolSource()) {

@@ -87,7 +87,7 @@ void DwarfImportTask::Import() {
         }
     }
 
-    {
+    if (options_.importTypes) {
         // phase 2
         size_t numNamedNodes = nameIndex.NumEntries();
         OrderedTypeBuilderContext context{dwarfContext, nameIndex};
@@ -103,9 +103,11 @@ void DwarfImportTask::Import() {
             monitor_(DwarfImportPhase::DecodingTypes, ++index, ++numNamedNodes);
         });
         BDLogInfo("imported {} named types to binary view", numNamedNodes);
+    } else {
+        BDLogInfo("skipping type import");
     }
 
-    // phase 4
+    // phase 3
     {
         const auto &units = dwarfContext.GetNormalUnitsVector();
         size_t numUnits = units.size();
@@ -119,6 +121,10 @@ void DwarfImportTask::Import() {
                 DwarfDieWrapper die = dwarfContext.GetDIEForOffset(dieInfo.GetOffset());
                 switch (die.GetTag()) {
                     case dwarf::DW_TAG_subprogram: {
+                        if (!options_.importFunctions) {
+                            break;
+                        }
+
                         auto info = FunctionDecoder{context, die}.Decode();
                         if (!info) {
                             break;
@@ -143,6 +149,9 @@ void DwarfImportTask::Import() {
                     }
                     case dwarf::DW_TAG_constant:
                     case dwarf::DW_TAG_variable: {
+                        if (!options_.importGlobals) {
+                            break;
+                        }
                         auto info = VariableDecoder{context, die}.Decode();
                         if (!info) {
                             break;

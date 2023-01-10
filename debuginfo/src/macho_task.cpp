@@ -42,8 +42,10 @@ namespace fs = std::filesystem;
 /// MachO import task
 
 MachOImportTask::MachOImportTask(std::vector<fs::path> sources, BinaryView &binaryView,
-                                 BinaryNinja::DebugInfo &debugInfo, MachOImportProgressMonitor &monitor)
-    : binaryView_{binaryView}, debugInfo_{debugInfo}, sources_{sources}, monitor_{monitor},
+                                 BinaryNinja::DebugInfo &debugInfo,
+                                 MachOImportOptions options, MachOImportProgressMonitor &monitor)
+    : binaryView_{binaryView}, debugInfo_{debugInfo}, sources_{sources},
+      options_{options}, monitor_{monitor},
       targetSegments_{MachO::MachBinaryView{binaryView}.ReadMachOHeaders()} {
     for (const auto &symbol: binaryView.GetSymbols()) {
         registeredSymbols_[symbol->GetAddress()] = symbol->GetFullName();
@@ -121,6 +123,14 @@ bool MachOImportTask::AddSymbol(const Symbol &symbol, AddressSlider &slider) {
     if (symbol.GetType() != BNSymbolType::FunctionSymbol && symbol.GetType() != BNSymbolType::DataSymbol) {
         BDLogDebug("ignoring external symbol {} at {}",
                    symbol.GetFullName(), symbol.GetAddress());
+        return false;
+    }
+
+    if (symbol.GetType() == BNSymbolType::FunctionSymbol && !options_.importFunctions) {
+        return false;
+    }
+
+    if (symbol.GetType() == BNSymbolType::DataSymbol && !options_.importDataVariables) {
         return false;
     }
 

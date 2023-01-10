@@ -23,6 +23,7 @@
 
 #include <binja/macho/macho.h>
 #include <binja/utils/log.h>
+#include <binja/utils/settings.h>
 
 #include "plugin_symtab.h"
 
@@ -37,12 +38,37 @@ namespace {
 
 bool IsValidForBinaryView(void *context, BNBinaryView *handle) {
     BinaryNinja::BinaryView bv{handle};
-    return bv.GetTypeName() == "MachO-KC";
+
+    if (bv.GetTypeName() != "MachO-KC") {
+        return false;
+    }
+
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {bv.GetObject(), bnSettings->GetObject()};
+
+    if (!settings.SymtabEnabled()) {
+        BDLogInfo("skipping KC SYMTAB debug info import since it is disabled");
+        return false;
+    }
+
+    return true;
 }
 
 bool DoParseDebugInfo(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView *binaryViewHandle, bool(progress)(void *, size_t, size_t), void *pctx) {
     BN::BinaryView binaryView{binaryViewHandle};
     BN::Ref<BN::BinaryView> rawView = binaryView.GetParentView();
+
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {binaryView.GetObject(), bnSettings->GetObject()};
+
+    if (!settings.SymtabLoadFunctions()) {
+        BDLogInfo("functions debug info import from KC SYMTAB is disabled");
+    }
+
+    if (!settings.SymtabLoadDataVariables()) {
+        BDLogInfo("data variables debug info import from KC SYMTAB is disabled");
+    }
+
     BN::DebugInfo debugInfo{debugInfoHandle};
     std::vector<MachO::Fileset> filesets = MachO::MachHeaderParser{*rawView, 0}.DecodeFilesets();
 
@@ -61,7 +87,7 @@ bool DoParseDebugInfo(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView 
             if (symbol.name.starts_with("_")) {
                 symbol.name = symbol.name.substr(1);
             }
-            if (isFunction) {
+            if (isFunction && settings.SymtabLoadFunctions()) {
                 BN::DebugFunctionInfo info{
                     symbol.name,
                     symbol.name,
@@ -71,7 +97,7 @@ bool DoParseDebugInfo(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView 
                     nullptr,
                 };
                 debugInfo.AddFunction(info);
-            } else {
+            } else if (settings.SymtabLoadDataVariables()) {
                 debugInfo.AddDataVariable(symbol.addr, BN::Type::VoidType(), symbol.name);
             }
         }

@@ -26,6 +26,7 @@
 #include <fmt/format.h>
 
 #include <binja/utils/log.h>
+#include <binja/utils/settings.h>
 
 #include "macho_task.h"
 #include "plugin_macho.h"
@@ -45,14 +46,44 @@ void PluginMacho::Load(BinaryNinja::DebugInfo &debugInfo, MachOImportProgressMon
         BDLogDebug("skipping macho symbols import since valid source cannot be found");
         return;
     }
+
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {binaryView_.GetObject(), bnSettings->GetObject()};
+    BDVerify(settings.MachoEnabled());
+
+    MachOImportOptions options {
+        .importFunctions = settings.MachoLoadFunctions(),
+        .importDataVariables = settings.MachoLoadDataVariables()
+    };
+
+    if (!options.importFunctions) {
+        BDLogDebug("skipping macho function symbols import since import functions is disabled");
+    }
+
+    if (!options.importDataVariables) {
+        BDLogDebug("skipping macho data variable symbols import since import data variables is disabled");
+    }
+
     auto machoObjects = SymbolSourceFinder{*source}.FindAllMachoObjects();
     BDLogInfo("found {} macho symbol sources at {}", machoObjects.size(), source->string());
     MachOImportTask task{std::vector<fs::path>{machoObjects.begin(), machoObjects.end()},
-                         binaryView_, debugInfo, monitor};
+                         binaryView_, debugInfo, options, monitor};
     task.Import();
 }
 
 std::optional<fs::path> PluginMacho::GetSymbolSource() {
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {binaryView_.GetObject(), bnSettings->GetObject()};
+    BDVerify(settings.MachoEnabled());
+
+    if (auto path = settings.DebugInfoSymbolsSearchPath()) {
+        if (!fs::exists(*path)) {
+            BDLogError("skipping macho import since specified symbols directory {} does not exist", *path);
+            return std::nullopt;
+        }
+        return *path;
+    }
+
     fs::path binarySource = binaryView_.GetFile()->GetOriginalFilename();
 
     fs::path symbolsDirectory = fmt::format("{}.symbols", binarySource.string());
@@ -94,6 +125,13 @@ namespace {
 
 bool IsValidForBinaryView(void *context, BNBinaryView *handle) {
     BinaryNinja::BinaryView bv{handle};
+
+    auto bnSettings = BinaryNinja::Settings::Instance();
+    Utils::BinjaSettings settings {bv.GetObject(), bnSettings->GetObject()};
+    if (!settings.MachoEnabled()) {
+        BDLogInfo("skipping Mach-O debug info import since it is disabled");
+        return false;
+    }
 
     PluginMacho plugin{bv};
     if (plugin.GetSymbolSource()) {

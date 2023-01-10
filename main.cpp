@@ -21,6 +21,7 @@
 
 #include <binaryninjacore.h>
 
+#include <binja/utils/settings.h>
 #include <binja/debuginfo/plugin_dsym.h>
 #include <binja/debuginfo/plugin_macho.h>
 #include <binja/debuginfo/plugin_symtab.h>
@@ -32,6 +33,7 @@ extern "C" {
 BN_DECLARE_CORE_ABI_VERSION
 
 BINARYNINJAPLUGIN bool CorePluginInit() {
+    Utils::BinjaSettings::Register();
     DebugInfo::PluginDSYM::RegisterPlugin();
     DebugInfo::PluginMacho::RegisterPlugin();
     DebugInfo::PluginSymtab::RegisterPlugin();

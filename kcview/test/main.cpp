@@ -31,6 +31,7 @@
 
 #include <binja/kcview/lib.h>
 #include <binja/utils/binary_view.h>
+#include <binja/utils/settings.h>
 
 using namespace BinaryNinja;
 using namespace std;
@@ -59,6 +60,7 @@ int main(int argc, char *argv[]) {
     SetBundledPluginDirectory(BNGetBundledPluginDirectory());
     InitPlugins(true);
 
+    Utils::BinjaSettings::Register();
     KCView::CorePluginInit();
     LogToStdout(BNLogLevel::DebugLog);
 
