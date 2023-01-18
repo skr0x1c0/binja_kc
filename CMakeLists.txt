@@ -4,6 +4,8 @@ include(CheckCXXCompilerFlag)
 
 project(binja_kc)
 
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -29,11 +31,18 @@ find_path(
 add_subdirectory(${BN_API_PATH} api)
 
 add_subdirectory(external)
+
+find_package(LLVM 15.0 REQUIRED
+        COMPONENTS support object debugInfoDWARF)
+
 add_subdirectory(common)
 add_subdirectory(debuginfo)
 add_subdirectory(kcview)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE dwarf_debuginfo kcview)
+target_link_directories(${PROJECT_NAME} PRIVATE ${LLVM_LIBRARY_DIRS})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${LLVM_LIBRARIES} libzstd_static)
+target_link_options(${PROJECT_NAME} PRIVATE -lz -lm -lcurses)
 
 set_target_properties(${PROJECT_NAME} PROPERTIES
         CXX_VISIBILITY_PRESET hidden

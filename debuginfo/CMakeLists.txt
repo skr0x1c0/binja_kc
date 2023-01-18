@@ -33,12 +33,11 @@ set(DWARF_LOADER_SOURCES
 
 add_library(${LIBRARY_NAME} STATIC ${DWARF_LOADER_SOURCES} ${DWARF_LOADER_HEADERS})
 target_include_directories(${LIBRARY_NAME} PUBLIC include/binja)
-
-target_link_libraries(${LIBRARY_NAME} PRIVATE LLVMSupport LLVMDebugInfoDWARF LLVMObject)
-get_property(LLVM_INCLUDE_DIRECTORIES GLOBAL PROPERTY EXTERNAL_LLVM_INCLUDE_DIRECTORIES)
-target_include_directories(${LIBRARY_NAME} PUBLIC ${LLVM_INCLUDE_DIRECTORIES})
 target_include_directories(${LIBRARY_NAME} PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_include_directories(${LIBRARY_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include/binja/debuginfo)
+
+target_link_libraries(${LIBRARY_NAME} PRIVATE ${LLVM_LIBRARIES})
+target_include_directories(${LIBRARY_NAME} PUBLIC ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC binja_kc_common)
 target_link_libraries(${LIBRARY_NAME} PUBLIC binaryninjaapi fmt::fmt mio::mio Taskflow)

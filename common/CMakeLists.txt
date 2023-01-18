@@ -25,8 +25,7 @@ add_library(${LIBRARY_NAME} STATIC ${BINJA_KC_COMMON_HEADERS} ${BINJA_KC_COMMON_
 target_include_directories(${LIBRARY_NAME} PUBLIC include)
 target_include_directories(${LIBRARY_NAME} PRIVATE include/binja)
 
-target_link_libraries(${LIBRARY_NAME} PRIVATE LLVMSupport LLVMObject)
-get_property(LLVM_INCLUDE_DIRECTORIES GLOBAL PROPERTY EXTERNAL_LLVM_INCLUDE_DIRECTORIES)
-target_include_directories(${LIBRARY_NAME} PUBLIC ${LLVM_INCLUDE_DIRECTORIES})
+target_link_libraries(${LIBRARY_NAME} PRIVATE ${LLVM_LIBRARIES})
+target_include_directories(${LIBRARY_NAME} PUBLIC ${LLVM_INCLUDE_DIRS})
 
 target_link_libraries(${LIBRARY_NAME} PUBLIC binaryninjaapi fmt::fmt)
