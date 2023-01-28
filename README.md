@@ -38,6 +38,13 @@ git checkout master
 popd
 ```
 
+#### Install LLVM 15
+
+```
+brew install llvm@15
+```
+
+
 ### Building and installation
 
 1. Clone the BinjaKC repository along with its submodules
