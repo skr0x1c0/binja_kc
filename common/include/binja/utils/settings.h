@@ -13,6 +13,7 @@ public:
     explicit BinjaSettings(BNBinaryView* bvObj, BNSettings* settingsObj)
         : bvObj_{bvObj}, settingsObj_{settingsObj} {}
 
+    const bool KCApplyDyldChainedFixups() const;
     const bool KCStripPAC() const;
     const std::vector<std::string> KCExcludedFilesets() const;
     const std::vector<std::string> KCIncludedFilesets() const;

@@ -22,8 +22,8 @@
 #include <llvm/Object/MachO.h>
 
 #include "macho/macho.h"
-#include "utils/log.h"
 #include "utils/demangle.h"
+#include "utils/log.h"
 
 using namespace Binja;
 using namespace MachO;
@@ -73,6 +73,115 @@ struct arm_unified_thread_state {
         arm_thread_state32_t ts_32;
         arm_thread_state64_t ts_64;
     } uts;
+};
+
+struct dyld_chained_starts_in_segment {
+    uint32_t size;             // size of this (amount kernel needs to copy)
+    uint16_t page_size;        // 0x1000 or 0x4000
+    uint16_t pointer_format;   // DYLD_CHAINED_PTR_*
+    uint64_t segment_offset;   // offset in memory to start of segment
+    uint32_t max_valid_pointer;// for 32-bit OS, any value beyond this is not a pointer
+    uint16_t page_count;       // how many pages are in array
+    uint16_t page_start[1];    // each entry is offset in each page of first element in chain
+                               // or DYLD_CHAINED_PTR_START_NONE if no fixups on page
+                               // uint16_t    chain_starts[1];    // some 32-bit formats may require multiple starts per page.
+                               // for those, if high bit is set in page_starts[], then it
+                               // is index into chain_starts[] which is a list of starts
+                               // the last of which has the high bit set
+};
+
+enum {
+    DYLD_CHAINED_PTR_START_NONE = 0xFFFF, // used in page_start[] to denote a page with no fixups
+    DYLD_CHAINED_PTR_START_MULTI = 0x8000,// used in page_start[] to denote a page which has multiple starts
+    DYLD_CHAINED_PTR_START_LAST = 0x8000, // used in chain_starts[] to denote last start in list for page
+};
+
+// values for dyld_chained_starts_in_segment.pointer_format
+enum {
+    DYLD_CHAINED_PTR_ARM64E = 1,// stride 8, unauth target is vmaddr
+    DYLD_CHAINED_PTR_64 = 2,    // target is vmaddr
+    DYLD_CHAINED_PTR_32 = 3,
+    DYLD_CHAINED_PTR_32_CACHE = 4,
+    DYLD_CHAINED_PTR_32_FIRMWARE = 5,
+    DYLD_CHAINED_PTR_64_OFFSET = 6,    // target is vm offset
+    DYLD_CHAINED_PTR_ARM64E_OFFSET = 7,// old name
+    DYLD_CHAINED_PTR_ARM64E_KERNEL = 7,// stride 4, unauth target is vm offset
+    DYLD_CHAINED_PTR_64_KERNEL_CACHE = 8,
+    DYLD_CHAINED_PTR_ARM64E_USERLAND = 9,     // stride 8, unauth target is vm offset
+    DYLD_CHAINED_PTR_ARM64E_FIRMWARE = 10,    // stride 4, unauth target is vmaddr
+    DYLD_CHAINED_PTR_X86_64_KERNEL_CACHE = 11,// stride 1, x86_64 kernel caches
+    DYLD_CHAINED_PTR_ARM64E_USERLAND24 = 12,  // stride 8, unauth target is vm offset, 24-bit bind
+};
+
+// DYLD_CHAINED_PTR_ARM64E
+struct dyld_chained_ptr_arm64e_rebase {
+    uint64_t target : 43,
+        high8 : 8,
+        next : 11,// 4 or 8-byte stide
+        bind : 1, // == 0
+        auth : 1; // == 0
+};
+
+// DYLD_CHAINED_PTR_ARM64E
+struct dyld_chained_ptr_arm64e_bind {
+    uint64_t ordinal : 16,
+        zero : 16,
+        addend : 19,// +/-256K
+        next : 11,  // 4 or 8-byte stide
+        bind : 1,   // == 1
+        auth : 1;   // == 0
+};
+
+// DYLD_CHAINED_PTR_ARM64E
+struct dyld_chained_ptr_arm64e_auth_rebase {
+    uint64_t target : 32,// runtimeOffset
+        diversity : 16,
+        addrDiv : 1,
+        key : 2,
+        next : 11,// 4 or 8-byte stide
+        bind : 1, // == 0
+        auth : 1; // == 1
+};
+
+// DYLD_CHAINED_PTR_ARM64E
+struct dyld_chained_ptr_arm64e_auth_bind {
+    uint64_t ordinal : 16,
+        zero : 16,
+        diversity : 16,
+        addrDiv : 1,
+        key : 2,
+        next : 11,// 4 or 8-byte stide
+        bind : 1, // == 1
+        auth : 1; // == 1
+};
+
+// DYLD_CHAINED_PTR_64/DYLD_CHAINED_PTR_64_OFFSET
+struct dyld_chained_ptr_64_rebase {
+    uint64_t target : 36,// 64GB max image size (DYLD_CHAINED_PTR_64 => vmAddr, DYLD_CHAINED_PTR_64_OFFSET => runtimeOffset)
+        high8 : 8,       // top 8 bits set to this (DYLD_CHAINED_PTR_64 => after slide added, DYLD_CHAINED_PTR_64_OFFSET => before slide added)
+        reserved : 7,    // all zeros
+        next : 12,       // 4-byte stride
+        bind : 1;        // == 0
+};
+
+// DYLD_CHAINED_PTR_64
+struct dyld_chained_ptr_64_bind {
+    uint64_t ordinal : 24,
+        addend : 8,   // 0 thru 255
+        reserved : 19,// all zeros
+        next : 12,    // 4-byte stride
+        bind : 1;     // == 1
+};
+
+// DYLD_CHAINED_PTR_64_KERNEL_CACHE, DYLD_CHAINED_PTR_X86_64_KERNEL_CACHE
+struct dyld_chained_ptr_64_kernel_cache_rebase {
+    uint64_t target : 30,// basePointers[cacheLevel] + target
+        cacheLevel : 2,  // what level of cache to bind to (indexes a mach_header array)
+        diversity : 16,
+        addrDiv : 1,
+        key : 2,
+        next : 12, // 1 or 4-byte stide
+        isAuth : 1;// 0 -> not authenticated.  1 -> authenticated
 };
 
 int32_t FixupSegmentMaxProt(const segment_command_64 &cmd) {
@@ -233,19 +342,119 @@ std::vector<Symbol> MachHeaderParser::DecodeSymbols() {
     std::vector<Symbol> result;
     if (auto symtab = FindCommand<symtab_command>(LC_SYMTAB)) {
         BinaryViewDataReader symReader{&binaryView_, symtab->symoff};
-        for (size_t i=0; i<symtab->nsyms; ++i) {
+        for (size_t i = 0; i < symtab->nsyms; ++i) {
             auto sym = symReader.Read<nlist_64>();
             if ((sym.n_type & N_TYPE) == N_UNDF) {
                 continue;
             }
             BinaryViewDataReader strReader{&binaryView_, symtab->stroff + sym.n_strx};
             std::string name = Utils::Demangle(strReader.ReadString());
-            result.emplace_back(Symbol {
+            result.emplace_back(Symbol{
                 .name = name,
                 .addr = sym.n_value,
             });
         }
     }
+    return result;
+}
+
+std::vector<DyldChainedPtr> MachHeaderParser::DecodeDyldChainedPtrs() {
+    auto cmd = FindCommand<linkedit_data_command>(LC_DYLD_CHAINED_FIXUPS);
+    if (!cmd) {
+        BDLogWarn("Skipping DYLD_CHAINED_FIXUPS since no LC_DYLD_CHAINED_FIXUPS command found");
+        return std::vector<DyldChainedPtr>();
+    }
+
+    uint64_t vmBase = *FindVMBase();
+    std::vector<DyldChainedPtr> result;
+
+    BinaryViewDataReader startsInImageReader{&binaryView_, cmd->dataoff};
+    auto fixupsHeader = startsInImageReader.Peek<dyld_chained_fixups_header>();
+    startsInImageReader.Seek(fixupsHeader.starts_offset);
+
+    auto startsInImageHeader = startsInImageReader.Peek<dyld_chained_starts_in_image>();
+    startsInImageReader.Seek(offsetof(dyld_chained_starts_in_image, seg_info_offset));
+
+    for (size_t segInfoIndex = 0; segInfoIndex < startsInImageHeader.seg_count; ++segInfoIndex) {
+        static_assert(sizeof(dyld_chained_starts_in_image::seg_info_offset) == sizeof(uint32_t));
+        auto segInfoOffset = startsInImageReader.Read<uint32_t>();
+        if (segInfoOffset == 0) {
+            continue;
+        }
+
+        BinaryViewDataReader startsInSegmentReader{&binaryView_, cmd->dataoff + fixupsHeader.starts_offset + segInfoOffset};
+        auto startsInSegmentHeader = startsInSegmentReader.Peek<dyld_chained_starts_in_segment>();
+
+        static_assert(offsetof(dyld_chained_starts_in_segment, page_start) + sizeof(dyld_chained_starts_in_segment::page_start) == sizeof(dyld_chained_starts_in_segment));
+        static_assert(sizeof(dyld_chained_starts_in_segment::page_start) == sizeof(uint16_t));
+
+        startsInSegmentReader.Seek(offsetof(dyld_chained_starts_in_segment, page_start));
+        for (size_t pageIndex = 0; pageIndex < startsInSegmentHeader.page_count; ++pageIndex) {
+            auto offsetInPage = startsInSegmentReader.Read<uint16_t>();
+            if (offsetInPage == DYLD_CHAINED_PTR_START_NONE) {
+                continue;
+            }
+            if (offsetInPage & DYLD_CHAINED_PTR_START_MULTI) {
+                BDLogWarn("Skipping DYLD_CHAINED_PTR_START_MULTI");
+                continue;
+            }
+            switch (startsInSegmentHeader.pointer_format) {
+                case DYLD_CHAINED_PTR_64_KERNEL_CACHE: {
+                    union PtrARM64e {
+                        uint64_t raw;
+                        dyld_chained_ptr_arm64e_rebase rebase;
+                        dyld_chained_ptr_arm64e_bind bind;
+                        dyld_chained_ptr_arm64e_auth_rebase auth_rebase;
+                        dyld_chained_ptr_arm64e_auth_bind auth_bind;
+                    };
+                    BinaryViewDataReader ptrReader{
+                        &binaryView_,
+                        startsInSegmentHeader.segment_offset + pageIndex * startsInSegmentHeader.page_size + offsetInPage};
+                    while (true) {
+                        auto ptr = ptrReader.Peek<PtrARM64e>();
+                        bool auth = ptr.rebase.auth;
+                        bool bind = ptr.rebase.bind;
+                        auto next = ptr.rebase.next;
+
+                        if (auth && bind) {
+                            BDLogWarn("Cannot fixup chained pointer with both auth and bind set "
+                                      "at offset {:#016x}", ptrReader.Offset());
+                        } else if (auth) {
+                            auto address = vmBase + ptr.auth_rebase.target;
+                            result.emplace_back(DyldChainedPtr{
+                                .fileOffset = ptrReader.Offset(),
+                                .value = address,
+                            });
+                        } else if (bind) {
+                            BDLogWarn("Cannot chained pointer with bind set "
+                                      "at offset {:#016x}", ptrReader.Offset());
+                        } else {
+                            auto top8Bits = (ptr.raw >> 43) & 0xFFL;
+                            auto bottom43Bits = ptr.raw & 0x000007FFFFFFFFFFL;
+                            if (top8Bits == 0x80) {
+                                top8Bits = 0;
+                            }
+                            auto address = vmBase + ((top8Bits << 56) | bottom43Bits);
+                            result.emplace_back(DyldChainedPtr{
+                                .fileOffset = ptrReader.Offset(),
+                                .value = address,
+                            });
+                        }
+
+                        if (next == 0) {
+                            break;
+                        }
+                        ptrReader.Seek(next * 4);
+                    }
+                    break;
+                }
+                default:
+                    BDLogWarn("Encountered unknown pointer format {}, skipping", startsInSegmentHeader.pointer_format);
+                    continue;
+            }
+        }
+    }
+
     return result;
 }
 
@@ -260,6 +469,24 @@ std::optional<T> MachHeaderParser::FindCommand(uint32_t cmd) {
             continue;
         }
         return reader.Peek<T>();
+    }
+    return std::nullopt;
+}
+
+std::optional<uint64_t> MachHeaderParser::FindVMBase() {
+    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    auto header = reader.Read<mach_header_64>();
+    for (uint32_t i = 0; i < header.ncmds; ++i) {
+        auto lc = reader.Peek<load_command>();
+        if (lc.cmd != LC_SEGMENT_64) {
+            reader.Seek(lc.cmdsize);
+            continue;
+        }
+        auto segment = reader.Peek<segment_command_64>();
+        if (segment.vmaddr > 0) {
+            return segment.vmaddr;
+        }
+        reader.Seek(lc.cmdsize);
     }
     return std::nullopt;
 }

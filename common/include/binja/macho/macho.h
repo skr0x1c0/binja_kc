@@ -64,6 +64,11 @@ struct Symbol {
     uint64_t addr;
 };
 
+struct DyldChainedPtr {
+    uint64_t fileOffset;
+    uint64_t value;
+};
+
 class MachHeaderParser {
 public:
     MachHeaderParser(BinaryNinja::BinaryView &binaryView, uint64_t machHeaderOffset)
@@ -76,10 +81,12 @@ public:
     std::optional<uint64_t> DecodeEntryPoint();
     std::optional<Types::UUID> DecodeUUID();
     std::vector<Symbol> DecodeSymbols();
+    std::vector<DyldChainedPtr> DecodeDyldChainedPtrs();
 
 private:
     void VerifyHeader();
     template <class T> std::optional<T> FindCommand(uint32_t cmd);
+    std::optional<uint64_t> FindVMBase();
 
     static Fileset DecodeFileset(Utils::BinaryViewDataReader &reader);
     static Segment DecodeSegment(Utils::BinaryViewDataReader &reader);

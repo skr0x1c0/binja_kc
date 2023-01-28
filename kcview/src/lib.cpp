@@ -80,6 +80,7 @@ public:
         for (const auto& fileset: settings.KCIncludedFilesets()) {
             includedFilesets_.insert(fileset);
         }
+        applyDyldChainedFixups_ = settings.KCApplyDyldChainedFixups();
         stripPAC_ = settings.KCStripPAC();
         defineKallocTypeSymbols_ = settings.KCSymbolicateKallocTypes();
     }
@@ -188,6 +189,9 @@ private:
         FindEntryPoint();
 
         const Ref<Settings> settings = BinaryNinja::Settings::Instance();
+        if (applyDyldChainedFixups_) {
+            ApplyDyldChainedFixups();
+        }
         if (stripPAC_) {
             StripPAC();
         }
@@ -295,6 +299,15 @@ private:
                 section.vaStart,
                 section.vaLength,
                 section.semantics);
+        }
+    }
+
+    void ApplyDyldChainedFixups() {
+        MachO::MachHeaderParser parser {*base_, 0};
+        std::vector<MachO::DyldChainedPtr> chainedPtrs = parser.DecodeDyldChainedPtrs();
+        BDLogInfo("Found {} chained pointers", chainedPtrs.size());
+        for (const auto& ptr: chainedPtrs) {
+            base_->Write(ptr.fileOffset, &ptr.value, sizeof(ptr.value));
         }
     }
 
@@ -426,6 +439,7 @@ private:
 
     std::set<std::string> excludedFilesets_;
     std::set<std::string> includedFilesets_;
+    bool applyDyldChainedFixups_;
     bool stripPAC_;
     bool defineKallocTypeSymbols_;
 };

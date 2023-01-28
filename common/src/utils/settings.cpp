@@ -18,6 +18,7 @@ using SettingsRef = BN::Ref<BN::Settings>;
 #define KC_SETTINGS_GROUP MAIN_SETTINGS_GROUP ".kernelcache"
 #define KC_SETTING_EXCLUDED_FILESETS KC_SETTINGS_GROUP ".excludedFilesets"
 #define KC_SETTING_INCLUDED_FILESETS KC_SETTINGS_GROUP ".includedFilesets"
+#define KC_SETTING_APPLY_DYLD_CHAINED_FIXUPS KC_SETTINGS_GROUP ".applyDyldChainedFixups"
 #define KC_SETTING_STRIP_PAC KC_SETTINGS_GROUP ".stripPAC"
 #define KC_SETTING_SYMBOLICATE_KALLOC_TYPES KC_SETTINGS_GROUP ".symbolicateKallocTypes"
 
@@ -63,6 +64,15 @@ void RegisterKCSettings(SettingsRef settings) {
             "ignore": [],
             "title": "Included filesets",
             "type": "array"
+        })");
+    // TODO: fix description
+    settings->RegisterSetting(
+        KC_SETTING_APPLY_DYLD_CHAINED_FIXUPS,
+        R"({
+            "default": true,
+            "description": "Apply dyld chained fixups",
+            "title": "Apply dyld chained fixups",
+            "type": "boolean"
         })");
     settings->RegisterSetting(
         KC_SETTING_STRIP_PAC,
@@ -204,32 +214,30 @@ void BinjaSettings::Register() {
 }
 
 
-template <>
-bool BinjaSettings::GetSetting(const std::string& key) const {
+template<>
+bool BinjaSettings::GetSetting(const std::string &key) const {
     const SettingsRef settings = BinaryNinja::Settings::Instance();
     return BNSettingsGetBool(
         settingsObj_,
         key.c_str(),
         bvObj_,
-        nullptr
-    );
+        nullptr);
 }
 
-template <>
-std::string BinjaSettings::GetSetting(const std::string& key) const {
+template<>
+std::string BinjaSettings::GetSetting(const std::string &key) const {
     const SettingsRef settings = BinaryNinja::Settings::Instance();
     return BNSettingsGetString(
         settingsObj_,
         key.c_str(),
         bvObj_,
-        nullptr
-    );
+        nullptr);
 }
 
-template <>
-std::vector<std::string> BinjaSettings::GetSetting(const std::string& key) const {
+template<>
+std::vector<std::string> BinjaSettings::GetSetting(const std::string &key) const {
     size_t size = 0;
-    char** outBuffer = (char**)BNSettingsGetStringList(
+    char **outBuffer = (char **) BNSettingsGetStringList(
         settingsObj_, key.c_str(), bvObj_, nullptr, &size);
 
     std::vector<std::string> result;
@@ -239,6 +247,10 @@ std::vector<std::string> BinjaSettings::GetSetting(const std::string& key) const
 
     BNFreeStringList(outBuffer, size);
     return result;
+}
+
+const bool BinjaSettings::KCApplyDyldChainedFixups() const {
+    return GetSetting<bool>(KC_SETTING_APPLY_DYLD_CHAINED_FIXUPS);
 }
 
 const bool BinjaSettings::KCStripPAC() const {

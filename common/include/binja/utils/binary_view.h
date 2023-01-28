@@ -72,6 +72,10 @@ public:
         }
     }
 
+    const uint64_t Offset() const {
+        return offset_;
+    }
+
 private:
     size_t FindStringLength(size_t maxLength) {
         char buffer[32];
