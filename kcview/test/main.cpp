@@ -62,10 +62,9 @@ int main(int argc, char *argv[]) {
 
     Utils::BinjaSettings::Register();
     KCView::CorePluginInit();
-    LogToStdout(BNLogLevel::DebugLog);
+    LogToStdout(BNLogLevel::InfoLog);
 
     Json::Value opts;
-    opts["loader.stripPAC"] = true;
     Ref<BinaryView> bv = Binja::Utils::OpenBinaryView(fname, false, nullptr, nullptr, opts);
     bv->UpdateAnalysisAndWait();
 
