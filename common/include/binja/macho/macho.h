@@ -21,6 +21,7 @@
 
 #pragma once
 
+#include <span>
 #include <string>
 
 #include <binaryninjaapi.h>
@@ -29,6 +30,142 @@
 #include "../types/errors.h"
 #include "../types/uuid.h"
 #include "../utils/binary_view.h"
+
+
+namespace Binja::MachO {
+
+class DataReaderError : public Types::DecodeError {
+    using Types::DecodeError::DecodeError;
+};
+
+
+class MachDataBackend {
+public:
+    virtual ~MachDataBackend() = default;
+    virtual size_t GetStart() const = 0;
+    virtual size_t GetLength() const = 0;
+    virtual size_t Read(void *buffer, size_t offset, size_t length) const = 0;
+};
+
+
+class MachBinaryViewDataBackend : public MachDataBackend {
+public:
+    explicit MachBinaryViewDataBackend(BinaryNinja::BinaryView &base) : base_(base) {}
+
+    size_t GetStart() const override {
+        return base_.GetStart();
+    }
+
+    size_t GetLength() const override {
+        return base_.GetLength();
+    }
+
+    size_t Read(void *buffer, size_t offset, size_t length) const override {
+        return base_.Read(buffer, offset, length);
+    }
+
+private:
+    BinaryNinja::BinaryView &base_;
+};
+
+
+class MachSpanDataBackend : public MachDataBackend {
+public:
+    explicit MachSpanDataBackend(const std::span<char>& base) : base_{base} {}
+
+    size_t GetStart() const override {
+        return 0;
+    }
+
+    size_t GetLength() const override {
+        return base_.size();
+    }
+
+    size_t Read(void *buffer, size_t offset, size_t length) const override {
+        if (offset >= base_.size()) {
+            return 0;
+        }
+        std::memcpy(buffer, base_.data() + offset, std::min(length, base_.size() - offset));
+        return length;
+    }
+
+private:
+    const std::span<char>& base_;
+};
+
+}// namespace Binja::MachO
+
+
+namespace Binja::MachO::Detail {
+
+
+class DataReader {
+public:
+    explicit DataReader(const MachDataBackend *base, uint64_t offset)
+        : base_{base}, offset_{offset} {}
+
+    template<class T>
+    T Read() {
+        T result = Peek<T>();
+        offset_ += sizeof(T);
+        return result;
+    }
+
+    template<class T>
+    T Peek() {
+        T result;
+        auto size = sizeof(T);
+        auto read = base_->Read(&result, offset_, size);
+        if (read != size) {
+            throw DataReaderError{"Failed to read data of size {} at offset {}, read only {} bytes", size, offset_, read};
+        }
+        return result;
+    }
+
+    std::string ReadString(size_t maxLength = 1024) {
+        size_t length = FindStringLength(maxLength);
+        std::string result;
+        result.resize(length);
+        auto read = base_->Read(result.data(), offset_, length);
+        BDVerify(read == length);
+        offset_ += length;
+        return result;
+    }
+
+    void Seek(size_t length) {
+        offset_ += length;
+        if (offset_ > base_->GetStart() + base_->GetLength()) {
+            throw DataReaderError{"Attempt to seek to position {} past EOF, file size: {}", offset_, base_->GetLength()};
+        }
+    }
+
+    const uint64_t Offset() const {
+        return offset_;
+    }
+
+private:
+    size_t FindStringLength(size_t maxLength) {
+        char buffer[32];
+        for (size_t cursor = 0; cursor < maxLength; cursor += sizeof(buffer)) {
+            size_t read = base_->Read(buffer, offset_ + cursor, sizeof(buffer));
+            for (size_t i = 0; i < read; ++i) {
+                if (buffer[i] == '\0') {
+                    return cursor + i;
+                }
+            }
+            if (read != sizeof(buffer)) {
+                throw DataReaderError{"Failed to read string at offset {}, reached EOF at {}", offset_, cursor + read};
+            }
+        }
+        throw DataReaderError{"Failed to read string at offset {}, string exceeds max length {}", offset_, maxLength};
+    }
+
+private:
+    const MachDataBackend *base_;
+    uint64_t offset_;
+};
+
+}// namespace Binja::MachO::Detail
 
 namespace Binja::MachO {
 
@@ -71,8 +208,8 @@ struct DyldChainedPtr {
 
 class MachHeaderParser {
 public:
-    MachHeaderParser(BinaryNinja::BinaryView &binaryView, uint64_t machHeaderOffset)
-        : binaryView_{binaryView}, machHeaderOffset_{machHeaderOffset} {
+    MachHeaderParser(const MachDataBackend &data, uint64_t machHeaderOffset)
+        : data_{data}, machHeaderOffset_{machHeaderOffset} {
         VerifyHeader();
     }
 
@@ -85,15 +222,15 @@ public:
 
 private:
     void VerifyHeader();
-    template <class T> std::optional<T> FindCommand(uint32_t cmd);
+    template<class T> std::optional<T> FindCommand(uint32_t cmd);
     std::optional<uint64_t> FindVMBase();
 
-    static Fileset DecodeFileset(Utils::BinaryViewDataReader &reader);
-    static Segment DecodeSegment(Utils::BinaryViewDataReader &reader);
-    static std::vector<Section> DecodeSections(Utils::BinaryViewDataReader &reader);
+    static Fileset DecodeFileset(Detail::DataReader &reader);
+    static Segment DecodeSegment(Detail::DataReader &reader);
+    static std::vector<Section> DecodeSections(Detail::DataReader &reader);
 
 private:
-    BinaryNinja::BinaryView &binaryView_;
+    const MachDataBackend &data_;
     uint64_t machHeaderOffset_;
 };
 

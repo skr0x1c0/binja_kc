@@ -31,8 +31,6 @@ using namespace llvm::MachO;
 
 namespace BN = BinaryNinja;
 
-using Utils::BinaryViewDataReader;
-
 namespace {
 
 #define LC_FILESET_ENTRY (0x35 | LC_REQ_DYLD)
@@ -185,7 +183,7 @@ struct dyld_chained_ptr_64_kernel_cache_rebase {
 };
 
 int32_t FixupSegmentMaxProt(const segment_command_64 &cmd) {
-    if (std::string(cmd.segname) != "__DATA_CONST") {
+    if (std::string(cmd.segname) != "__&data_CONST") {
         return cmd.maxprot;
     }
     return cmd.maxprot & (~VM_PROT_WRITE);
@@ -196,15 +194,14 @@ int32_t FixupSegmentMaxProt(const segment_command_64 &cmd) {
 /// Macho header parser
 
 void MachO::MachHeaderParser::VerifyHeader() {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    Detail::DataReader reader{&data_, machHeaderOffset_};
     auto cmd = reader.Read<mach_header_64>();
     if (cmd.magic != MH_MAGIC_64 && cmd.magic != MH_CIGAM_64) {
-        throw MachHeaderDecodeError{"unsupported mach header magic {} at offset {} for binary {}", cmd.magic, machHeaderOffset_,
-                                    binaryView_.GetFile()->GetOriginalFilename()};
+        throw MachHeaderDecodeError{"unsupported mach header magic {} at offset {}", cmd.magic, machHeaderOffset_};
     }
 }
 
-Fileset MachHeaderParser::DecodeFileset(BinaryViewDataReader &reader) {
+Fileset MachHeaderParser::DecodeFileset(Detail::DataReader &reader) {
     auto cmd = reader.Peek<fileset_entry_command>();
     reader.Seek(cmd.entry_id.offset);
     std::string name = reader.ReadString();
@@ -216,13 +213,13 @@ Fileset MachHeaderParser::DecodeFileset(BinaryViewDataReader &reader) {
 }
 
 std::vector<Fileset> MachHeaderParser::DecodeFilesets() {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    Detail::DataReader reader{&data_, machHeaderOffset_};
     auto header = reader.Read<mach_header_64>();
     std::vector<Fileset> result;
     for (int i = 0; i < header.ncmds; ++i) {
         auto cmd = reader.Peek<load_command>();
         if (cmd.cmd == LC_FILESET_ENTRY) {
-            BinaryViewDataReader sub{reader};
+            Detail::DataReader sub{reader};
             result.push_back(DecodeFileset(sub));
         }
         reader.Seek(cmd.cmdsize);
@@ -230,7 +227,7 @@ std::vector<Fileset> MachHeaderParser::DecodeFilesets() {
     return result;
 }
 
-std::vector<Section> MachHeaderParser::DecodeSections(BinaryViewDataReader &reader) {
+std::vector<Section> MachHeaderParser::DecodeSections(Detail::DataReader &reader) {
     auto segment = reader.Read<segment_command_64>();
 
     auto decodeSectionSemantics = [](const segment_command_64 &segment, const section_64 &section) {
@@ -259,7 +256,7 @@ std::vector<Section> MachHeaderParser::DecodeSections(BinaryViewDataReader &read
     return result;
 }
 
-Segment MachHeaderParser::DecodeSegment(BinaryViewDataReader &reader) {
+Segment MachHeaderParser::DecodeSegment(Detail::DataReader &reader) {
     auto decodeSegmentFlags = [](const segment_command_64 &cmd) {
         uint32_t flags = 0;
         auto maxProt = FixupSegmentMaxProt(cmd);
@@ -292,13 +289,13 @@ Segment MachHeaderParser::DecodeSegment(BinaryViewDataReader &reader) {
 }
 
 std::vector<Segment> MachHeaderParser::DecodeSegments() {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    Detail::DataReader reader{&data_, machHeaderOffset_};
     auto header = reader.Read<mach_header_64>();
     std::vector<Segment> result;
     for (int i = 0; i < header.ncmds; ++i) {
         auto cmd = reader.Peek<load_command>();
         if (cmd.cmd == LC_SEGMENT_64) {
-            BinaryViewDataReader sub{reader};
+            Detail::DataReader sub{reader};
             result.push_back(DecodeSegment(sub));
         }
         reader.Seek(cmd.cmdsize);
@@ -307,7 +304,7 @@ std::vector<Segment> MachHeaderParser::DecodeSegments() {
 }
 
 std::optional<uint64_t> MachHeaderParser::DecodeEntryPoint() {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    Detail::DataReader reader{&data_, machHeaderOffset_};
     auto header = reader.Read<mach_header_64>();
     for (int i = 0; i < header.ncmds; ++i) {
         auto cmd = reader.Peek<load_command>();
@@ -315,7 +312,7 @@ std::optional<uint64_t> MachHeaderParser::DecodeEntryPoint() {
             reader.Seek(cmd.cmdsize);
             continue;
         }
-        auto sub = BinaryViewDataReader{reader};
+        auto sub = Detail::DataReader{reader};
         sub.Seek(sizeof(thread_command));
         auto flavor = sub.Peek<uint32_t>();
         if (flavor != ARM_THREAD_STATE64) {
@@ -341,13 +338,13 @@ std::optional<Types::UUID> MachHeaderParser::DecodeUUID() {
 std::vector<Symbol> MachHeaderParser::DecodeSymbols() {
     std::vector<Symbol> result;
     if (auto symtab = FindCommand<symtab_command>(LC_SYMTAB)) {
-        BinaryViewDataReader symReader{&binaryView_, symtab->symoff};
+        Detail::DataReader symReader{&data_, symtab->symoff};
         for (size_t i = 0; i < symtab->nsyms; ++i) {
             auto sym = symReader.Read<nlist_64>();
             if ((sym.n_type & N_TYPE) == N_UNDF) {
                 continue;
             }
-            BinaryViewDataReader strReader{&binaryView_, symtab->stroff + sym.n_strx};
+            Detail::DataReader strReader{&data_, symtab->stroff + sym.n_strx};
             std::string name = Utils::Demangle(strReader.ReadString());
             result.emplace_back(Symbol{
                 .name = name,
@@ -368,7 +365,7 @@ std::vector<DyldChainedPtr> MachHeaderParser::DecodeDyldChainedPtrs() {
     uint64_t vmBase = *FindVMBase();
     std::vector<DyldChainedPtr> result;
 
-    BinaryViewDataReader startsInImageReader{&binaryView_, cmd->dataoff};
+    Detail::DataReader startsInImageReader{&data_, cmd->dataoff};
     auto fixupsHeader = startsInImageReader.Peek<dyld_chained_fixups_header>();
     startsInImageReader.Seek(fixupsHeader.starts_offset);
 
@@ -382,7 +379,7 @@ std::vector<DyldChainedPtr> MachHeaderParser::DecodeDyldChainedPtrs() {
             continue;
         }
 
-        BinaryViewDataReader startsInSegmentReader{&binaryView_, cmd->dataoff + fixupsHeader.starts_offset + segInfoOffset};
+        Detail::DataReader startsInSegmentReader{&data_, cmd->dataoff + fixupsHeader.starts_offset + segInfoOffset};
         auto startsInSegmentHeader = startsInSegmentReader.Peek<dyld_chained_starts_in_segment>();
 
         static_assert(offsetof(dyld_chained_starts_in_segment, page_start) + sizeof(dyld_chained_starts_in_segment::page_start) == sizeof(dyld_chained_starts_in_segment));
@@ -407,8 +404,8 @@ std::vector<DyldChainedPtr> MachHeaderParser::DecodeDyldChainedPtrs() {
                         dyld_chained_ptr_arm64e_auth_rebase auth_rebase;
                         dyld_chained_ptr_arm64e_auth_bind auth_bind;
                     };
-                    BinaryViewDataReader ptrReader{
-                        &binaryView_,
+                    Detail::DataReader ptrReader{
+                        &data_,
                         startsInSegmentHeader.segment_offset + pageIndex * startsInSegmentHeader.page_size + offsetInPage};
                     while (true) {
                         auto ptr = ptrReader.Peek<PtrARM64e>();
@@ -460,7 +457,7 @@ std::vector<DyldChainedPtr> MachHeaderParser::DecodeDyldChainedPtrs() {
 
 template<class T>
 std::optional<T> MachHeaderParser::FindCommand(uint32_t cmd) {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    Detail::DataReader reader{&data_, machHeaderOffset_};
     auto header = reader.Read<mach_header_64>();
     for (uint32_t i = 0; i < header.ncmds; ++i) {
         auto lc = reader.Peek<load_command>();
@@ -474,7 +471,7 @@ std::optional<T> MachHeaderParser::FindCommand(uint32_t cmd) {
 }
 
 std::optional<uint64_t> MachHeaderParser::FindVMBase() {
-    BinaryViewDataReader reader{&binaryView_, machHeaderOffset_};
+    Detail::DataReader reader{&data_, machHeaderOffset_};
     auto header = reader.Read<mach_header_64>();
     for (uint32_t i = 0; i < header.ncmds; ++i) {
         auto lc = reader.Peek<load_command>();
@@ -496,7 +493,8 @@ std::optional<uint64_t> MachHeaderParser::FindVMBase() {
 std::vector<uint64_t> MachBinaryView::ReadMachOHeaderOffsets() {
     uint64_t start = binaryView_.GetStart();
     std::vector<uint64_t> result{start};
-    MachHeaderParser header{binaryView_, start};
+    MachBinaryViewDataBackend backend{binaryView_};
+    MachHeaderParser header{backend, start};
     for (const auto &fileset: header.DecodeFilesets()) {
         if (binaryView_.GetTypeName() == "Raw") {
             result.push_back(fileset.fileOffset + binaryView_.GetStart());
@@ -513,7 +511,8 @@ std::map<Types::UUID, std::vector<Segment>> MachBinaryView::ReadMachOHeaders() {
         if (!binaryView_.IsValidOffset(offset)) {
             continue;
         }
-        MachHeaderParser parser{binaryView_, offset};
+        MachBinaryViewDataBackend backend{binaryView_};
+        MachHeaderParser parser{backend, offset};
         auto uuid = parser.DecodeUUID();
         if (!uuid) {
             BDLogWarn("mach header at {:#016x} does not have LC_UUID command, "

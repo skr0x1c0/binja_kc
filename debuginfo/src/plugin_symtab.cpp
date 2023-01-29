@@ -70,11 +70,12 @@ bool DoParseDebugInfo(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView 
     }
 
     BN::DebugInfo debugInfo{debugInfoHandle};
-    std::vector<MachO::Fileset> filesets = MachO::MachHeaderParser{*rawView, 0}.DecodeFilesets();
+    MachO::MachBinaryViewDataBackend dataBackend{*rawView};
 
+    std::vector<MachO::Fileset> filesets = MachO::MachHeaderParser{dataBackend, 0}.DecodeFilesets();
     for (size_t i=0; i<filesets.size(); ++i) {
         MachO::Fileset &fileset = filesets[i];
-        MachO::MachHeaderParser parser{*rawView, fileset.fileOffset};
+        MachO::MachHeaderParser parser{dataBackend, fileset.fileOffset};
         std::vector<MachO::Symbol> symbols = parser.DecodeSymbols();
 
         for (auto &symbol: symbols) {

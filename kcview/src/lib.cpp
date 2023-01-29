@@ -45,6 +45,7 @@ using KCView::MachoDecodeError;
 using KCView::RangeMap;
 using MachO::Fileset;
 using MachO::MachHeaderParser;
+using MachO::MachBinaryViewDataBackend;
 using MachO::Section;
 using MachO::Segment;
 
@@ -193,16 +194,24 @@ private:
             return;
         }
 
-        const Ref<Settings> settings = BinaryNinja::Settings::Instance();
-        if (applyDyldChainedFixups_) {
-            ApplyDyldChainedFixups();
-        }
-        if (stripPAC_) {
-            StripPAC();
-        }
         if (defineKallocTypeSymbols_) {
             DefineKallocTypeSymbols();
         }
+
+        if (applyDyldChainedFixups_) {
+            std::vector<char> buffer{};
+            buffer.resize(base_->GetLength());
+            size_t read = base_->Read(buffer.data(), 0, buffer.size());
+            BDVerify(read == buffer.size());
+            ApplyDyldChainedFixups(std::span<char>{buffer.data(), buffer.size()});
+            size_t wrote = base_->Write(0, buffer.data(), buffer.size());
+            BDVerify(wrote == buffer.size());
+        }
+
+        if (stripPAC_) {
+            StripPAC();
+        }
+
     }
 
     void VerifyKC() {
@@ -235,7 +244,8 @@ private:
     }
 
     void FindEntryPoint() {
-        if (auto entry = MachHeaderParser{*base_, 0}.DecodeEntryPoint()) {
+        MachBinaryViewDataBackend backend{*base_};
+        if (auto entry = MachHeaderParser{backend, 0}.DecodeEntryPoint()) {
             entryPoint_ = *entry;
         } else {
             throw MachoDecodeError{"binary does not have LC_UNIXTHREAD command"};
@@ -259,7 +269,8 @@ private:
     }
 
     void ProcessBaseSegments() {
-        MachHeaderParser parser{*base_, 0};
+        MachBinaryViewDataBackend backend{*base_};
+        MachHeaderParser parser{backend, 0};
         std::set<std::string> shouldMap{"__TEXT", "__LINKEDIT"};
         for (const auto &segment: parser.DecodeSegments()) {
             if (!shouldMap.contains(segment.name)) {
@@ -307,12 +318,14 @@ private:
         }
     }
 
-    void ApplyDyldChainedFixups() {
-        MachO::MachHeaderParser parser {*base_, 0};
+    void ApplyDyldChainedFixups(std::span<char> data) {
+        MachO::MachSpanDataBackend backend{data};
+        MachO::MachHeaderParser parser {backend, 0};
         std::vector<MachO::DyldChainedPtr> chainedPtrs = parser.DecodeDyldChainedPtrs();
         BDLogInfo("Found {} chained pointers", chainedPtrs.size());
         for (const auto& ptr: chainedPtrs) {
-            base_->Write(ptr.fileOffset, &ptr.value, sizeof(ptr.value));
+            BDVerify(ptr.fileOffset + sizeof(ptr.value) < data.size_bytes());
+            memcpy(&data[ptr.fileOffset], &ptr.value, sizeof(ptr.value));
         }
     }
 
@@ -428,11 +441,13 @@ private:
     }
 
     std::vector<Fileset> DecodeFilesets() {
-        return MachHeaderParser{*base_, 0}.DecodeFilesets();
+        MachBinaryViewDataBackend backend{*base_};
+        return MachHeaderParser{backend, 0}.DecodeFilesets();
     }
 
     std::vector<Segment> DecodeSegments(uint64_t fileoff) {
-        return MachHeaderParser{*base_, fileoff}.DecodeSegments();
+        MachBinaryViewDataBackend backend{*base_};
+        return MachHeaderParser{backend, fileoff}.DecodeSegments();
     }
 
 private:
