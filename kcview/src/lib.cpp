@@ -188,6 +188,11 @@ private:
         FindVALength();
         FindEntryPoint();
 
+        // TODO: handle case when only file contents are saved??
+        if (BNIsBackedByDatabase(GetFile()->GetObject(), kBinaryType)) {
+            return;
+        }
+
         const Ref<Settings> settings = BinaryNinja::Settings::Instance();
         if (applyDyldChainedFixups_) {
             ApplyDyldChainedFixups();
