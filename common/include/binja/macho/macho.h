@@ -85,7 +85,8 @@ public:
         if (offset >= base_.size()) {
             return 0;
         }
-        std::memcpy(buffer, base_.data() + offset, std::min(length, base_.size() - offset));
+        length = std::min(length, base_.size() - offset);
+        std::memcpy(buffer, base_.data() + offset, length);
         return length;
     }
 
