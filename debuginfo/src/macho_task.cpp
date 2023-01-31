@@ -67,12 +67,13 @@ void MachOImportTask::Import() {
         }
 
         BDLogDebug("importing symbols from macho {}", binary->GetFile()->GetOriginalFilename());
-        auto uuid = MachO::MachHeaderParser{*binary, binary->GetStart()}.DecodeUUID();
+        MachO::MachBinaryViewDataBackend dataBackend{*binary};
+        auto uuid = MachO::MachHeaderParser{dataBackend, binary->GetStart()}.DecodeUUID();
         BDVerify(uuid);
         auto targetSegments = targetSegments_[*uuid];
 
         AddressSlider slider = AddressSlider::CreateFromMachOSegments(
-            MachO::MachHeaderParser{*binary, binary->GetStart()}.DecodeSegments(),
+            MachO::MachHeaderParser{dataBackend, binary->GetStart()}.DecodeSegments(),
             targetSegments);
 
         std::vector<Ref<Symbol>> symbols = binary->GetSymbols();
@@ -102,7 +103,8 @@ Ref<BinaryView> MachOImportTask::OpenMachO(const fs::path &path) {
         BDLogWarn("ignoring macho image {} with no symbols", path.string());
         return nullptr;
     }
-    auto uuid = MachO::MachHeaderParser{*bv, bv->GetStart()}.DecodeUUID();
+    MachO::MachBinaryViewDataBackend dataBackend{*bv};
+    auto uuid = MachO::MachHeaderParser{dataBackend, bv->GetStart()}.DecodeUUID();
     if (!uuid) {
         BDLogWarn("ignoring macho image {} with no LC_UUID", path.string());
         return nullptr;
