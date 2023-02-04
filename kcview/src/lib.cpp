@@ -470,7 +470,7 @@ public:
 
     bool IsDeprecated() override { return false; }
 
-    BinaryView *Create(BinaryView *data) override {
+    std::conditional_t<BN_CURRENT_CORE_ABI_VERSION >= 31, Ref<BinaryView>, BinaryView *> Create(BinaryView *data) override {
         try {
             return new CustomBinaryView{data};
         } catch (const Types::DecodeError &e) {
@@ -479,7 +479,7 @@ public:
         }
     }
 
-    BinaryView *Parse(BinaryView *data) override {
+    std::conditional_t<BN_CURRENT_CORE_ABI_VERSION >= 31, Ref<BinaryView>, BinaryView *> Parse(BinaryView *data) override {
         try {
             auto *bv = dynamic_cast<CustomBinaryView *>(data);
             bv->Parse();
