@@ -219,6 +219,7 @@ public:
     std::optional<uint64_t> DecodeEntryPoint();
     std::optional<Types::UUID> DecodeUUID();
     std::vector<Symbol> DecodeSymbols();
+    std::vector<uint64_t> DecodeFunctionStarts();
     std::vector<DyldChainedPtr> DecodeDyldChainedPtrs();
 
 private:

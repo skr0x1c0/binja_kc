@@ -19,27 +19,18 @@
 // SOFTWARE.
 
 
-#include <binaryninjacore.h>
+#pragma once
 
-#include <binja/utils/settings.h>
-#include <binja/debuginfo/plugin_dsym.h>
-#include <binja/debuginfo/plugin_macho.h>
-#include <binja/debuginfo/plugin_symtab.h>
-#include <binja/debuginfo/plugin_function_starts.h>
-#include <binja/kcview/lib.h>
+#include <binaryninjaapi.h>
 
-using namespace Binja;
+namespace Binja::DebugInfo {
 
-extern "C" {
-BN_DECLARE_CORE_ABI_VERSION
+class PluginFunctionStarts {
+public:
+    static constexpr auto kPluginName = "macho_kc_function_starts_debug_info";
 
-BINARYNINJAPLUGIN bool CorePluginInit() {
-    Utils::BinjaSettings::Register();
-    DebugInfo::PluginDSYM::RegisterPlugin();
-    DebugInfo::PluginMacho::RegisterPlugin();
-    DebugInfo::PluginSymtab::RegisterPlugin();
-    DebugInfo::PluginFunctionStarts::RegisterPlugin();
-    KCView::CorePluginInit();
-    return true;
-}
-}
+public:
+    static void RegisterPlugin();
+};
+
+}// namespace Binja::DebugInfo

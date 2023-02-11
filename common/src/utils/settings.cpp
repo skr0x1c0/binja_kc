@@ -41,6 +41,9 @@ using SettingsRef = BN::Ref<BN::Settings>;
 #define SYMTAB_SETTINGS_LOAD_DATA_VARIABLES SYMTAB_SETTINGS_GROUP ".loadDataVariables"
 #define SYMTAB_SETTINGS_LOAD_FUNCTIONS SYMTAB_SETTINGS_GROUP ".loadFunctions"
 
+#define FUNCTION_STARTS_SETTINGS_GROUP MAIN_SETTINGS_GROUP ".functionStarts"
+#define FUNCTION_STARTS_SETTINGS_ENABLE_FUNCTION_STARTS FUNCTION_STARTS_SETTINGS_GROUP ".enableFunctionStarts"
+
 namespace {
 
 void RegisterKCSettings(SettingsRef settings) {
@@ -200,6 +203,17 @@ void RegisterSymtabSettings(SettingsRef settings) {
         })");
 }
 
+void RegisterFunctionStartsSettings(SettingsRef settings) {
+    settings->RegisterSetting(
+        FUNCTION_STARTS_SETTINGS_ENABLE_FUNCTION_STARTS,
+        R"""({
+            "default": false,
+            "description": "Load function starts using LC_FUNCTION_STARTS load command",
+            "title": "Enable LC_FUNCTION_STARTS debug info",
+            "type": "boolean"
+        })""");
+}
+
 }// namespace
 
 
@@ -211,6 +225,7 @@ void BinjaSettings::Register() {
     RegisterDWARFSettings(settings);
     RegisterMachoSettings(settings);
     RegisterSymtabSettings(settings);
+    RegisterFunctionStartsSettings(settings);
 }
 
 
@@ -315,4 +330,8 @@ const bool BinjaSettings::SymtabLoadDataVariables() const {
 
 const bool BinjaSettings::SymtabLoadFunctions() const {
     return GetSetting<bool>(SYMTAB_SETTINGS_LOAD_FUNCTIONS);
+}
+
+const bool BinjaSettings::FunctionStartsEnabled() const {
+    return GetSetting<bool>(FUNCTION_STARTS_SETTINGS_ENABLE_FUNCTION_STARTS);
 }

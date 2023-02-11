@@ -34,6 +34,8 @@ public:
     const bool SymtabLoadDataVariables() const;
     const bool SymtabLoadFunctions() const;
 
+    const bool FunctionStartsEnabled() const;
+
 private:
     template <class T>
     T GetSetting(const std::string& key) const;

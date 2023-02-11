@@ -9,6 +9,7 @@ set(DWARF_LOADER_HEADERS
         include/binja/debuginfo/macho_task.h
         include/binja/debuginfo/name_index.h
         include/binja/debuginfo/plugin_dsym.h
+        include/binja/debuginfo/plugin_function_starts.h
         include/binja/debuginfo/plugin_macho.h
         include/binja/debuginfo/plugin_symtab.h
         include/binja/debuginfo/source_finder.h
@@ -24,6 +25,7 @@ set(DWARF_LOADER_SOURCES
         src/macho_task.cpp
         src/name_index.cpp
         src/plugin_dsym.cpp
+        src/plugin_function_starts.cpp
         src/plugin_macho.cpp
         src/plugin_symtab.cpp
         src/types.cpp

@@ -355,6 +355,37 @@ std::vector<Symbol> MachHeaderParser::DecodeSymbols() {
     return result;
 }
 
+namespace {
+
+uint64_t DecodeULEB128(Detail::DataReader &reader) {
+    uint64_t result = 0;
+    uint64_t shift = 0;
+    uint8_t byte = 0;
+    do {
+        byte = reader.Read<uint8_t>();
+        result |= ((byte & 0x7f) << shift);
+        shift += 7;
+    } while ((byte & 0x80) != 0);
+    return result;
+}
+
+}// namespace
+
+std::vector<uint64_t> MachHeaderParser::DecodeFunctionStarts() {
+    std::vector<uint64_t> result;
+    if (auto cmd = FindCommand<linkedit_data_command>(LC_FUNCTION_STARTS)) {
+        Detail::DataReader dataReader{&data_, cmd->dataoff};
+        uint64_t cursor = *FindVMBase();
+        size_t end = dataReader.Offset() + cmd->datasize;
+        while (dataReader.Offset() < end) {
+            uint64_t value = DecodeULEB128(dataReader);
+            cursor += value;
+            result.push_back(cursor);
+        }
+    }
+    return result;
+}
+
 std::vector<DyldChainedPtr> MachHeaderParser::DecodeDyldChainedPtrs() {
     auto cmd = FindCommand<linkedit_data_command>(LC_DYLD_CHAINED_FIXUPS);
     if (!cmd) {
