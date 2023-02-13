@@ -4,7 +4,7 @@ include(CheckCXXCompilerFlag)
 
 project(binja_kc)
 
-set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -23,14 +23,16 @@ endif ()
 
 add_library(${PROJECT_NAME} SHARED main.cpp)
 
-find_path(
-        BN_API_PATH
-        NAMES binaryninjaapi.h
-        HINTS $ENV{BN_API_PATH}
-        REQUIRED)
-add_subdirectory(${BN_API_PATH} api)
 
-add_subdirectory(external)
+if (NOT BKC_INTERNAL_BUILD)
+    find_path(
+            BN_API_PATH
+            NAMES binaryninjaapi.h
+            HINTS $ENV{BN_API_PATH}
+            REQUIRED)
+    add_subdirectory(${BN_API_PATH} api)
+    add_subdirectory(external)
+endif ()
 
 find_package(LLVM 15.0 REQUIRED
         COMPONENTS support object debugInfoDWARF)
