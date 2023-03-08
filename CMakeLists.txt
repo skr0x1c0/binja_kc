@@ -35,7 +35,7 @@ if (NOT BKC_INTERNAL_BUILD)
 endif ()
 
 find_package(LLVM 15.0 REQUIRED
-        COMPONENTS support object debugInfoDWARF)
+        COMPONENTS support object debugInfoDWARF demangle)
 
 add_subdirectory(common)
 add_subdirectory(debuginfo)

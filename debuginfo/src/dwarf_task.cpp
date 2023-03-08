@@ -135,10 +135,14 @@ void DwarfImportTask::Import() {
                         }
 
                         QualifiedName name = nameIndex.DecodeQualifiedName(die);
+                        std::string rawName = AttributeReader{die}.ReadLinkageName(
+                            name.GetString().c_str(),
+                            true);
+
                         DebugFunctionInfo symbol{
                             name.back(),
                             name.GetString(),
-                            fmt::format("sub_{:#016x}", info->entryPoint),
+                            rawName,
                             info->entryPoint,
                             info->type,
                             binaryView_.GetDefaultPlatform()};

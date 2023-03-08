@@ -345,7 +345,10 @@ std::vector<Symbol> MachHeaderParser::DecodeSymbols() {
                 continue;
             }
             Detail::DataReader strReader{&data_, symtab->stroff + sym.n_strx};
-            std::string name = Utils::Demangle(strReader.ReadString());
+            std::string name = strReader.ReadString();
+            if (name.starts_with("_")) {
+                name = name.substr(1);
+            }
             result.emplace_back(Symbol{
                 .name = name,
                 .addr = sym.n_value,
