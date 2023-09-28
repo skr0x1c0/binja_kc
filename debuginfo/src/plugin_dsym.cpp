@@ -20,6 +20,7 @@
 
 
 #include <filesystem>
+#include <type_traits>
 
 #include <binaryninjaapi.h>
 #include <binaryninjacore.h>
@@ -183,18 +184,22 @@ bool IsValidForBinaryView(void *context, BNBinaryView *handle) {
     return false;
 }
 
-bool DoParseDebugInfo(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView *binaryViewHandle, bool(progress)(void *, size_t, size_t), void *pctx) {
-    BinaryNinja::DebugInfo debugInfo{debugInfoHandle};
-    BinaryNinja::BinaryView binaryView{binaryViewHandle};
+template <typename ...Extra>
+struct DoParseDebugInfoImpl {
+    static bool Invoke(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView *binaryViewHandle, Extra..., bool(progress)(void *, size_t, size_t), void *pctx) {
+        BinaryNinja::DebugInfo debugInfo{debugInfoHandle};
+        BinaryNinja::BinaryView binaryView{binaryViewHandle};
 
-    ImportProgressMonitor monitor{progress, pctx};
-    PluginDSYM plugin{binaryView};
-    plugin.Load(debugInfo, monitor);
-    return true;
-}
+        ImportProgressMonitor monitor{progress, pctx};
+        PluginDSYM plugin{binaryView};
+        plugin.Load(debugInfo, monitor);
+        return true;
+    }
+};
+using DoParseDebugInfo = std::conditional_t<BN_CURRENT_CORE_ABI_VERSION >= 35, DoParseDebugInfoImpl<BNBinaryView *>, DoParseDebugInfoImpl<>>;
 
 }// namespace
 
 void PluginDSYM::RegisterPlugin() {
-    BNRegisterDebugInfoParser(kPluginName, IsValidForBinaryView, DoParseDebugInfo, nullptr);
+    BNRegisterDebugInfoParser(kPluginName, IsValidForBinaryView, DoParseDebugInfo::Invoke, nullptr);
 }

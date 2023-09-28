@@ -20,6 +20,7 @@
 
 
 #include <llvm/Demangle/ItaniumDemangle.h>
+#include <type_traits>
 
 #include <binja/macho/macho.h>
 #include <binja/utils/demangle.h>
@@ -193,50 +194,54 @@ BN::DebugFunctionInfo ParseFunctionInfo(const MachO::Symbol& symbol) {
     };
 }
 
-bool DoParseDebugInfo(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView *binaryViewHandle, bool(progress)(void *, size_t, size_t), void *pctx) {
-    BN::BinaryView binaryView{binaryViewHandle};
-    BN::Ref<BN::BinaryView> rawView = binaryView.GetParentView();
+template <typename ...Extra>
+struct DoParseDebugInfoImpl {
+    static bool Invoke(void *context, BNDebugInfo *debugInfoHandle, BNBinaryView *binaryViewHandle, Extra..., bool(progress)(void *, size_t, size_t), void *pctx) {
+        BN::BinaryView binaryView{binaryViewHandle};
+        BN::Ref<BN::BinaryView> rawView = binaryView.GetParentView();
 
-    auto bnSettings = BinaryNinja::Settings::Instance();
-    Utils::BinjaSettings settings {binaryView.GetObject(), bnSettings->GetObject()};
+        auto bnSettings = BinaryNinja::Settings::Instance();
+        Utils::BinjaSettings settings {binaryView.GetObject(), bnSettings->GetObject()};
 
-    if (!settings.SymtabLoadFunctions()) {
-        BDLogInfo("functions debug info import from KC SYMTAB is disabled");
-    }
-
-    if (!settings.SymtabLoadDataVariables()) {
-        BDLogInfo("data variables debug info import from KC SYMTAB is disabled");
-    }
-
-    BN::DebugInfo debugInfo{debugInfoHandle};
-    MachO::MachBinaryViewDataBackend dataBackend{*rawView};
-
-    std::vector<MachO::Fileset> filesets = MachO::MachHeaderParser{dataBackend, 0}.DecodeFilesets();
-    for (size_t i=0; i<filesets.size(); ++i) {
-        MachO::Fileset &fileset = filesets[i];
-        MachO::MachHeaderParser parser{dataBackend, fileset.fileOffset};
-        std::vector<MachO::Symbol> symbols = parser.DecodeSymbols();
-
-        for (auto &symbol: symbols) {
-            BN::Ref<BN::Segment> segment = binaryView.GetSegmentAt(symbol.addr);
-            if (!segment) {
-                BDLogDebug("ignoring nlist_64 entry, n_value {:#016x} is not in any segment", symbol.addr);
-                continue;
-            }
-            bool isFunction = segment->GetFlags() & BNSegmentFlag::SegmentContainsCode;
-            if (isFunction && settings.SymtabLoadFunctions()) {
-                debugInfo.AddFunction(ParseFunctionInfo(symbol));
-            } else if (settings.SymtabLoadDataVariables()) {
-                debugInfo.AddDataVariable(symbol.addr, BN::Type::VoidType(), symbol.name);
-            }
+        if (!settings.SymtabLoadFunctions()) {
+            BDLogInfo("functions debug info import from KC SYMTAB is disabled");
         }
-        progress(pctx, i, filesets.size());
+
+        if (!settings.SymtabLoadDataVariables()) {
+            BDLogInfo("data variables debug info import from KC SYMTAB is disabled");
+        }
+
+        BN::DebugInfo debugInfo{debugInfoHandle};
+        MachO::MachBinaryViewDataBackend dataBackend{*rawView};
+
+        std::vector<MachO::Fileset> filesets = MachO::MachHeaderParser{dataBackend, 0}.DecodeFilesets();
+        for (size_t i=0; i<filesets.size(); ++i) {
+            MachO::Fileset &fileset = filesets[i];
+            MachO::MachHeaderParser parser{dataBackend, fileset.fileOffset};
+            std::vector<MachO::Symbol> symbols = parser.DecodeSymbols();
+
+            for (auto &symbol: symbols) {
+                BN::Ref<BN::Segment> segment = binaryView.GetSegmentAt(symbol.addr);
+                if (!segment) {
+                    BDLogDebug("ignoring nlist_64 entry, n_value {:#016x} is not in any segment", symbol.addr);
+                    continue;
+                }
+                bool isFunction = segment->GetFlags() & BNSegmentFlag::SegmentContainsCode;
+                if (isFunction && settings.SymtabLoadFunctions()) {
+                    debugInfo.AddFunction(ParseFunctionInfo(symbol));
+                } else if (settings.SymtabLoadDataVariables()) {
+                    debugInfo.AddDataVariable(symbol.addr, BN::Type::VoidType(), symbol.name);
+                }
+            }
+            progress(pctx, i, filesets.size());
+        }
+        return true;
     }
-    return true;
-}
+};
+using DoParseDebugInfo = std::conditional_t<BN_CURRENT_CORE_ABI_VERSION >= 35, DoParseDebugInfoImpl<BNBinaryView *>, DoParseDebugInfoImpl<>>;
 
 }// namespace
 
 void PluginSymtab::RegisterPlugin() {
-    BNRegisterDebugInfoParser(kPluginName, IsValidForBinaryView, DoParseDebugInfo, nullptr);
+    BNRegisterDebugInfoParser(kPluginName, IsValidForBinaryView, DoParseDebugInfo::Invoke, nullptr);
 }
