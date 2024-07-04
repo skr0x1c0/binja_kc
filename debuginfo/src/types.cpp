@@ -183,10 +183,10 @@ BinaryNinja::Ref<BinaryNinja::Type> TypeModifierBuilder::Build() {
         case DW::DW_TAG_immutable_type:
         case DW::DW_TAG_restrict_type:
         case DW::DW_TAG_shared_type:
-            BDLogWarn("encountered unsupported type modifier tag {}", DW::TagString(tag));
+            BDLogWarn("encountered unsupported type modifier tag {}", DW::TagString(tag).str());
             return baseType;
         default:
-            BDLogWarn("encountered unknown type modifier tag {}", DW::TagString(tag));
+            BDLogWarn("encountered unknown type modifier tag {}", DW::TagString(tag).str());
             return baseType;
     }
 
@@ -488,7 +488,7 @@ BinaryNinja::Ref<BinaryNinja::Type> EnumTypeBuilder::Build() {
             }
         } else {
             BDLogWarn("ignoring unexpected tag {} inside enum, DIE: {}",
-                      DW::TagString(tag), dieReader_.Dump());
+                      DW::TagString(tag).str(), dieReader_.Dump());
         }
     }
 
@@ -545,7 +545,7 @@ BinaryNinja::Ref<BinaryNinja::Type> CompositeTypeBuilder::Build() {
                 // Already handled in member access / index DB iteration
                 break;
             default: {
-                BDLogInfo("Ignoring unexpected tag {} of DIE {}", DW::TagString(child.GetTag()),
+                BDLogInfo("Ignoring unexpected tag {} of DIE {}", DW::TagString(child.GetTag()).str(),
                           DieReader{const_cast<DwarfDieWrapper &>(child)}.Dump());
                 break;
             }

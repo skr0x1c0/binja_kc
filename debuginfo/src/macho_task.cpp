@@ -167,6 +167,7 @@ bool MachOImportTask::AddSymbol(const Symbol &symbol, AddressSlider &slider) {
                 address,
                 nullptr,
                 binaryView_.GetDefaultPlatform(),
+                {}
             };
             debugInfo_.AddFunction(info);
             break;
@@ -180,6 +181,8 @@ bool MachOImportTask::AddSymbol(const Symbol &symbol, AddressSlider &slider) {
         case ImportedDataSymbol:
         case ExternalSymbol:
         case LibraryFunctionSymbol:
+        case SymbolicFunctionSymbol:
+        case LocalLabelSymbol:
             BDVerify(false);
     }
     return true;

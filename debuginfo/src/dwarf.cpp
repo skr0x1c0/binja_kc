@@ -396,7 +396,7 @@ private:
             }
             default: {
                 throw DwarfError{"unexpected container type {}, DIE: {}",
-                                 TagString(tag), DieReader{die}.Dump()};
+                                 TagString(tag).str(), DieReader{die}.Dump()};
             }
         }
 
@@ -424,7 +424,7 @@ private:
             case dwarf::DW_TAG_lexical_block:
                 return "block";
             default:
-                throw FatalError{"unexpected dwarf tag {}", dwarf::TagString(tag)};
+                throw FatalError{"unexpected dwarf tag {}", dwarf::TagString(tag).str()};
         }
     }
 

@@ -174,6 +174,7 @@ std::optional<BN::DebugFunctionInfo> ParseMangledFunctionInfo(const MachO::Symbo
         symbol.addr,
         nullptr,
         nullptr,
+        {}
     };
 }
 
@@ -191,6 +192,7 @@ BN::DebugFunctionInfo ParseFunctionInfo(const MachO::Symbol& symbol) {
         symbol.addr,
         nullptr,
         nullptr,
+        {}
     };
 }
 

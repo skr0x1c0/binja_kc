@@ -154,7 +154,7 @@ std::vector<DwarfOffset> NameIndex::DecodeHierarchy(DwarfOffset offset) {
             }
             default: {
                 throw DwarfError{"unexpected container type {}, DIE: {}",
-                                 TagString(tag), DieReader{die}.Dump()};
+                                 TagString(tag).str(), DieReader{die}.Dump()};
             }
         }
 
@@ -367,7 +367,7 @@ const char *NameIndex::GetAnonymousNameSuffix(DW::Tag tag) {
         case DW_TAG_unspecified_type:
             return "unknown";
         default:
-            throw FatalError{"unexpected dwarf tag {}", TagString(tag)};
+            throw FatalError{"unexpected dwarf tag {}", TagString(tag).str()};
     }
 }
 

@@ -392,7 +392,7 @@ private:
         });
 
         executor.run(taskflow).wait();
-        BDLogInfo("XPACed total {} pointers", totalXPACs);
+        BDLogInfo("XPACed total {} pointers", totalXPACs.load());
     }
 
     void DefineKallocTypeSymbols() {
