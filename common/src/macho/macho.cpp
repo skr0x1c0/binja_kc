@@ -550,7 +550,7 @@ std::map<Types::UUID, std::vector<Segment>> MachBinaryView::ReadMachOHeaders() {
         auto uuid = parser.DecodeUUID();
         if (!uuid) {
             BDLogWarn("mach header at {:#016x} does not have LC_UUID command, "
-                      "symbols won't be loaded this segments in this header",
+                      "symbols won't be loaded for this segments in this header",
                       offset);
             continue;
         }

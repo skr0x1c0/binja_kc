@@ -39,7 +39,7 @@ template<>
 struct formatter<Binja::Types::UUID> : formatter<string_view> {
     template<typename FormatContext>
     auto format(const Binja::Types::UUID &p, FormatContext &ctx) const -> decltype(ctx.out()) {
-        return fmt::format_to(ctx.out(), "{}", fmt::join(p.data, ""));
+        return fmt::format_to(ctx.out(), "{:2x}", fmt::join(p.data, ""));
     }
 };
 

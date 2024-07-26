@@ -101,6 +101,7 @@ struct DoParseDebugInfoImpl {
                     start,
                     nullptr,
                     nullptr,
+                    {},
                     {}
                 };
                 debugInfo.AddFunction(info);

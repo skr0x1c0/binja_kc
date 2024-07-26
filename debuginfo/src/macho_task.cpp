@@ -167,6 +167,7 @@ bool MachOImportTask::AddSymbol(const Symbol &symbol, AddressSlider &slider) {
                 address,
                 nullptr,
                 binaryView_.GetDefaultPlatform(),
+                {},
                 {}
             };
             debugInfo_.AddFunction(info);

@@ -146,6 +146,7 @@ void DwarfImportTask::Import() {
                             info->entryPoint,
                             info->type,
                             binaryView_.GetDefaultPlatform(),
+                            {},
                             {}
                         };
                         symbol.type = info->type;
