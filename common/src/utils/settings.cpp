@@ -236,6 +236,7 @@ bool BinjaSettings::GetSetting(const std::string &key) const {
         settingsObj_,
         key.c_str(),
         bvObj_,
+        nullptr,
         nullptr);
 }
 
@@ -246,6 +247,7 @@ std::string BinjaSettings::GetSetting(const std::string &key) const {
         settingsObj_,
         key.c_str(),
         bvObj_,
+        nullptr,
         nullptr);
 }
 
@@ -253,7 +255,7 @@ template<>
 std::vector<std::string> BinjaSettings::GetSetting(const std::string &key) const {
     size_t size = 0;
     char **outBuffer = (char **) BNSettingsGetStringList(
-        settingsObj_, key.c_str(), bvObj_, nullptr, &size);
+        settingsObj_, key.c_str(), bvObj_, nullptr, nullptr, &size);
 
     std::vector<std::string> result;
     result.reserve(size);
